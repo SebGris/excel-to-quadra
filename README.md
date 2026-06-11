@@ -1,4 +1,4 @@
-# quadra-ecritures
+# excel-to-quadra
 
 Génération de fichiers d'import **ASCII QuadraCOMPTA (Cegid)** à partir de
 classeurs Excel de provisions de situation comptable — un fichier texte par
@@ -45,8 +45,8 @@ Encodage **Windows-1252**, fins de ligne **CRLF**.
 ## Installation
 
 ```bash
-git clone <url-du-depot>
-cd quadra-ecritures
+git clone https://github.com/SebGris/excel-to-quadra.git
+cd excel-to-quadra
 python -m venv .venv && .venv\Scripts\activate    # Windows
 pip install -e ".[dev]"
 ```
@@ -59,9 +59,9 @@ pip install -e ".[dev]"
 3. Lancer :
 
 ```bash
-quadra-ecritures --config config/situation.local.yaml
+excel-to-quadra --config config/situation.local.yaml
 # ou
-python -m quadra_ecritures.cli --config config/situation.local.yaml
+python -m excel_to_quadra.cli --config config/situation.local.yaml
 ```
 
 Le rapport de fin d'exécution affiche le nombre de fichiers générés, les
@@ -72,11 +72,11 @@ comptes). Le code de retour est non nul si un déséquilibre est détecté.
 ## Structure du projet
 
 ```
-quadra-ecritures/
+excel-to-quadra/
 ├── pyproject.toml              # métadonnées, dépendances, point d'entrée CLI
 ├── config/
 │   └── exemple_situation.yaml  # configuration d'exemple commentée
-├── src/quadra_ecritures/
+├── src/excel_to_quadra/
 │   ├── format_quadra.py        # enregistrements M et I (spécification Quadra)
 │   ├── normalisation.py        # codes établissement et montants
 │   ├── config.py               # dataclasses + chargement/validation YAML

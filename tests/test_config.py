@@ -3,7 +3,7 @@
 
 import pytest
 
-from quadra_ecritures.config import A_RENSEIGNER, charger_configuration
+from excel_to_quadra.config import A_RENSEIGNER, charger_configuration
 
 YAML_MINIMAL = """
 dossier_entree: "/entree"

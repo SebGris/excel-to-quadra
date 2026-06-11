@@ -3,7 +3,7 @@
 
 import pytest
 
-from quadra_ecritures.normalisation import lire_montant, normaliser_code
+from excel_to_quadra.normalisation import lire_montant, normaliser_code
 
 
 class TestNormaliserCode:

@@ -3,7 +3,7 @@
 
 from collections import defaultdict
 
-from quadra_ecritures.moteur import ajouter_ecriture_pair, controler_equilibre
+from excel_to_quadra.moteur import ajouter_ecriture_pair, controler_equilibre
 
 
 def _emettre(montant, extourne=False, centre="770401",

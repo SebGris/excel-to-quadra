@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Vue d'ensemble
 
-`quadra-ecritures` génère des fichiers d'import **ASCII QuadraCOMPTA (Cegid)** à
+`excel-to-quadra` génère des fichiers d'import **ASCII QuadraCOMPTA (Cegid)** à
 partir de classeurs Excel de provisions de situation comptable : un fichier
 texte par établissement (dossier Quadra), avec lignes analytiques et contrôle
 d'équilibre débit/crédit. Tout le référentiel métier (chemins, comptes, tables
@@ -22,8 +22,8 @@ python -m venv .venv && .venv\Scripts\activate
 pip install -e ".[dev]"
 
 # Exécution
-quadra-ecritures --config config/situation.local.yaml
-python -m quadra_ecritures.cli --config config/situation.local.yaml
+excel-to-quadra --config config/situation.local.yaml
+python -m excel_to_quadra.cli --config config/situation.local.yaml
 
 # Tests
 pytest                       # suite complète (autonome, ~62 tests)
@@ -37,23 +37,23 @@ Il n'y a pas de linter ni de formateur configuré dans le projet.
 
 ## Architecture
 
-Pipeline en une passe, orchestré par [cli.py](src/quadra_ecritures/cli.py) :
+Pipeline en une passe, orchestré par [cli.py](src/excel_to_quadra/cli.py) :
 **config YAML → lecture Excel → génération des paires d'écritures → contrôle
 d'équilibre → écriture d'un fichier texte par dossier**.
 
-- **[config.py](src/quadra_ecritures/config.py)** — dataclasses (`Source`,
+- **[config.py](src/excel_to_quadra/config.py)** — dataclasses (`Source`,
   `SourcePaie`, `Composante`, `Configuration`) et chargement/validation YAML.
   Construit `centre_vers_dossier` (table inverse centre→dossier) à partir de
   `analytique` (dossier→centre) plus les `centres_supplementaires`. Un compte
   valant le marqueur `A_RENSEIGNER` (`"XXXXXXXX"`) rend une source/composante
   `incomplete` : elle est ignorée et signalée, sans bloquer le reste.
 
-- **[normalisation.py](src/quadra_ecritures/normalisation.py)** — `normaliser_code`
+- **[normalisation.py](src/excel_to_quadra/normalisation.py)** — `normaliser_code`
   (extrait/nettoie le code dossier ; écarte totaux et non-numériques ; règle
   spéciale `7xxx → xxx` sur 4 chiffres commençant par 7) et `lire_montant`
   (ignore vides, nuls, texte, booléens).
 
-- **[moteur.py](src/quadra_ecritures/moteur.py)** — cœur de la logique.
+- **[moteur.py](src/excel_to_quadra/moteur.py)** — cœur de la logique.
   - `ajouter_ecriture_pair` produit chaque écriture en **paire équilibrée**
     (un M débit + un M crédit). La part de charge/produit (compte de classe 6
     ou 7) est écrite en premier et **immédiatement suivie de sa ligne I**
@@ -69,7 +69,7 @@ d'équilibre → écriture d'un fichier texte par dossier**.
     source en attente de comptes) sont **collectés et renvoyés** pour le rapport
     final, jamais une exception.
 
-- **[format_quadra.py](src/quadra_ecritures/format_quadra.py)** — mise en forme
+- **[format_quadra.py](src/excel_to_quadra/format_quadra.py)** — mise en forme
   des enregistrements à position fixe selon la spec Quadratus : ligne **M**
   (146 c.) et ligne **I** (39 c.). `euros_vers_centimes` convertit via `Decimal`
   + `ROUND_HALF_UP` (jamais de float : 0,005 € → 1 centime).

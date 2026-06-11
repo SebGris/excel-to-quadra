@@ -2,8 +2,8 @@
 """Point d'entrée en ligne de commande.
 
 Usage :
-    quadra-ecritures --config config/situation.local.yaml
-    python -m quadra_ecritures.cli --config config/situation.local.yaml
+    excel-to-quadra --config config/situation.local.yaml
+    python -m excel_to_quadra.cli --config config/situation.local.yaml
 """
 
 import argparse

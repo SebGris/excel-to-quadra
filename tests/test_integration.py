@@ -4,8 +4,8 @@
 import pytest
 from openpyxl import Workbook
 
-from quadra_ecritures.config import (Composante, Configuration, Source, SourcePaie)
-from quadra_ecritures.moteur import (controler_equilibre, ecrire_fichiers,
+from excel_to_quadra.config import (Composante, Configuration, Source, SourcePaie)
+from excel_to_quadra.moteur import (controler_equilibre, ecrire_fichiers,
                                      generer_ecritures, generer_ecritures_paie)
 
 CRLF = b"\r\n"

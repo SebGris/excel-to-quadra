@@ -3,7 +3,7 @@
 
 import pytest
 
-from quadra_ecritures.format_quadra import (
+from excel_to_quadra.format_quadra import (
     LONGUEUR_LIGNE_I, LONGUEUR_LIGNE_M, euros_vers_centimes,
     formater_ligne_i, formater_ligne_m)
 

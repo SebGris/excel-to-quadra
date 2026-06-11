@@ -1,5 +1,5 @@
 [project]
-name = "quadra-ecritures"
+name = "excel-to-quadra"
 version = "1.0.0"
 description = "Génération de fichiers d'import ASCII QuadraCOMPTA (Cegid) depuis des classeurs Excel de provisions"
 readme = "README.md"
@@ -12,7 +12,7 @@ dependencies = ["openpyxl>=3.0", "PyYAML>=6.0"]
 dev = ["pytest>=7.0"]
 
 [project.scripts]
-quadra-ecritures = "quadra_ecritures.cli:main"
+excel-to-quadra = "excel_to_quadra.cli:main"
 
 [build-system]
 requires = ["setuptools>=61"]
