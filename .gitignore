@@ -1,0 +1,18 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+build/
+dist/
+*.egg-info/
+.venv/
+venv/
+
+# Configurations locales contenant les référentiels internes (non versionnées)
+config/*.local.yaml
+config/*.local.yml
+
+# Données comptables : jamais dans le dépôt
+*.xlsx
+*.xlsb
+*.txt
+!tests/**

@@ -1,0 +1,59 @@
+# ============================================================================
+# Exemple de configuration — générateur d'écritures Quadra
+# Copier ce fichier en « situation.local.yaml » (non versionné) et l'adapter.
+# ============================================================================
+
+dossier_entree: "C:/chemin/vers/classeurs"
+dossier_sortie: "C:/chemin/vers/sortie"
+
+# Table dossier Quadra -> centre analytique (référentiel interne, table figée).
+analytique:
+  "101": "910101"
+  "102": "910201"
+
+# Centres supplémentaires -> dossier (clusters multi-activités :
+# plusieurs centres analytiques rattachés à un même dossier comptable).
+centres_supplementaires:
+  "910102": "101"
+  "910103": "101"
+
+# --- Sources « une ligne = un établissement » ------------------------------
+# Une entrée par colonne de montant à comptabiliser. Un compte "XXXXXXXX"
+# met la source en attente (ignorée et signalée) sans bloquer le reste.
+sources:
+  - fichier: "Provision_exemple.xlsx"
+    feuille: "Feuil1"
+    ligne_debut: 4              # première ligne de données
+    col_dossier: "A"            # colonne du code établissement
+    col_montant: "C"            # colonne du montant
+    extraire_code: true         # code au format « 9101 - NOM » -> 101
+    strip_zeros: false          # codes zéro-paddés « 000101 » -> 101
+    compte_credit: "40810000"   # contrepartie (provision / créance)
+    compte_debit: "62280000"    # charge (6x) ou produit (7x) -> ligne analytique
+    libelle: "Provision exemple"    # 20 caractères maximum
+    journal: "OS"
+    date_ecriture: "311226"     # JJMMAA
+    contre_passation: "010127"  # JJMMAA de l'extourne, ou null
+    # remap : rattacher des codes analytiques lus dans le fichier à un dossier
+    # (le code lu devient le centre de la ligne analytique)
+    # remap:
+    #   "910102": "101"
+
+# --- Sources de paie (détail par salarié, agrégé par centre de coût) -------
+sources_paie:
+  - fichier: "Paie_exemple.xlsx"
+    feuille: "Feuil1"
+    ligne_debut: 6
+    col_centre: "D"             # colonne « Centre de coût »
+    journal: "OS"
+    date_ecriture: "311226"
+    contre_passation: null
+    composantes:                # une écriture par composante et par centre
+      - col: "N"
+        compte_debit: "64133820"
+        compte_credit: "42822000"
+        libelle: "Prime exemple"
+      - col: "O"
+        compte_debit: "64583000"
+        compte_credit: "43822000"
+        libelle: "Charges sociales ex"
