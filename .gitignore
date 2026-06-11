@@ -15,6 +15,7 @@ config/*.local.yml
 *.xlsx
 *.xlsb
 *.txt
+!requirements*.txt
 !tests/**
 
 # Réaffirme l'exclusion des caches Python sous tests/ (annulée par !tests/**)
