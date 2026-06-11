@@ -99,3 +99,10 @@ d'équilibre → écriture d'un fichier texte par dossier**.
   contiennent des dates : la config est à mettre à jour à chaque situation.
 - Les tests d'intégration créent leurs propres classeurs Excel dans un
   répertoire temporaire — aucune donnée réelle n'est nécessaire pour `pytest`.
+
+## Données spécifiques à l'organisation
+
+Les chiffres de référence (totaux attendus, codes dossiers, nom de
+l'organisation) sont consignés dans `CLAUDE.local.md` — fichier **non versionné**
+(git-ignoré) pour ne jamais publier de données internes. S'y reporter pour les
+valeurs de non-régression sur les données réelles.
