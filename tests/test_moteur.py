@@ -7,12 +7,12 @@ from excel_to_quadra.moteur import ajouter_ecriture_pair, controler_equilibre
 
 
 def _emettre(montant, extourne=False, centre="770401",
-             compte_credit="40810000", compte_debit="62280000"):
+             compte_credit="40810000", compte_debit="62280000", facteur=1.0):
     par_dossier = defaultdict(list)
     sans_centre = []
     ajouter_ecriture_pair(par_dossier, "704", "OS", "310526", "Lib",
                           compte_credit, compte_debit, montant,
-                          centre, sans_centre, extourne)
+                          centre, sans_centre, extourne, facteur=facteur)
     return par_dossier["704"], sans_centre
 
 
@@ -71,6 +71,26 @@ class TestExtourne:
         lignes, _ = _emettre(-100.0, extourne=True)
         assert _sens(lignes, "62280000") == "D"
         assert _sens(lignes, "40810000") == "C"
+
+
+class TestFacteur:
+    def test_facteur_proratise_le_montant(self):
+        # 7/12 sur 13839,10 € -> 8072,81 € (807281 centimes)
+        lignes, _ = _emettre(13839.10, facteur=7 / 12)
+        d, c = controler_equilibre(lignes)
+        assert d == c == 807281
+
+    def test_facteur_par_defaut_neutre(self):
+        lignes, _ = _emettre(13839.10)              # facteur 1.0 implicite
+        d, c = controler_equilibre(lignes)
+        assert d == c == 1383910
+
+    def test_facteur_applique_avant_inversion_du_signe(self):
+        # facteur négatif rend le montant négatif -> sens inversés
+        lignes, _ = _emettre(100.0, facteur=-0.5)
+        assert _sens(lignes, "62280000") == "C"     # charge passe au crédit
+        d, c = controler_equilibre(lignes)
+        assert d == c == 5000                        # |100 * -0,5| = 50 €
 
 
 class TestControlerEquilibre:

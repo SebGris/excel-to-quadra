@@ -36,8 +36,9 @@ def ajouter_ecriture_pair(par_dossier: ParDossier, dossier: str, journal: str,
                           compte_debit: str, montant: float,
                           centre: Optional[str],
                           sans_centre: Optional[list],
-                          extourne: bool = False) -> None:
+                          extourne: bool = False, facteur: float = 1.0) -> None:
     """Ajoute une écriture équilibrée (M crédit + M débit) et sa ligne I éventuelle."""
+    montant = round(montant * facteur, 2)      # prorata avant calcul du sens
     inverser = extourne ^ (montant < 0)        # extourne et négatif se cumulent
     montant = abs(montant)
     if inverser:                               # l'ex-débit passe au crédit
@@ -78,6 +79,10 @@ def generer_ecritures(sources: List[Source], cfg: Configuration,
         c_montant = column_index_from_string(src.col_montant)
         date = src.contre_passation if extourne else src.date_ecriture
 
+        # En mode agrégé, on cumule (dossier, centre) -> montant et on émet
+        # une seule écriture par dossier après la boucle, au lieu de ligne à ligne.
+        cumul: Dict[Tuple[str, Optional[str]], float] = defaultdict(float)
+
         for r in range(src.ligne_debut, ws.max_row + 1):
             code_brut = normaliser_code(ws.cell(r, c_dossier).value,
                                         src.extraire_code, src.strip_zeros)
@@ -88,9 +93,18 @@ def generer_ecritures(sources: List[Source], cfg: Configuration,
             # Si le code lu EST un code analytique remappé, il sert de centre ;
             # sinon le centre vient de la table dossier -> centre.
             centre = code_brut if code_brut in src.remap else cfg.analytique.get(dossier)
+            if src.agreger:
+                cumul[(dossier, centre)] += montant
+            else:
+                ajouter_ecriture_pair(par_dossier, dossier, src.journal, date, src.libelle,
+                                      src.compte_credit, src.compte_debit, montant,
+                                      centre, sans_centre, extourne, facteur=src.facteur)
+
+        for dossier, centre in sorted(cumul, key=lambda k: (k[0], k[1] or "")):
             ajouter_ecriture_pair(par_dossier, dossier, src.journal, date, src.libelle,
-                                  src.compte_credit, src.compte_debit, montant,
-                                  centre, sans_centre, extourne)
+                                  src.compte_credit, src.compte_debit,
+                                  round(cumul[(dossier, centre)], 2),
+                                  centre, sans_centre, extourne, facteur=src.facteur)
     return par_dossier, sans_centre
 
 

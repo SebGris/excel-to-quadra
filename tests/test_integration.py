@@ -110,3 +110,37 @@ class TestChaineComplete:
         for code, lignes in par_dossier.items():
             d, c = controler_equilibre(lignes)
             assert d == c, f"dossier {code} déséquilibré"
+
+
+def test_agregation_cumule_un_seul_lot_par_dossier(tmp_path):
+    """agreger=True : deux lignes du même dossier -> une seule écriture sur le cumul."""
+    entree = tmp_path / "entree"
+    sortie = tmp_path / "sortie"
+    entree.mkdir()
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "CRE"
+    for i, (code, montant) in enumerate(
+            [("7704 - A", 1000.0), ("7704 - B", 500.0)], start=3):
+        ws.cell(i, 1, code)
+        ws.cell(i, 3, montant)
+    wb.save(entree / "agg.xlsx")
+
+    cfg = Configuration(
+        dossier_entree=str(entree), dossier_sortie=str(sortie),
+        analytique={"704": "770401"}, centre_vers_dossier={"770401": "704"},
+        sources=[Source(
+            fichier="agg.xlsx", feuille="CRE", ligne_debut=3,
+            col_dossier="A", col_montant="C", extraire_code=True,
+            compte_credit="40810000", compte_debit="62280000",
+            libelle="AGG TEST", journal="OS", date_ecriture="310526",
+            agreger=True)],
+        sources_paie=[])
+
+    par_dossier, sans_centre = generer_ecritures(cfg.sources, cfg)
+    # une seule écriture = 2 lignes M (+1 ligne I), pas 4 lignes M
+    assert sum(1 for l in par_dossier["704"] if l.startswith("M")) == 2
+    debit = next(l for l in par_dossier["704"] if l.startswith("M") and l[41] == "D")
+    assert int(debit[42:55]) == 150000          # 1000 + 500 = 1500 € cumulés
+    assert sans_centre == []

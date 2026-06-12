@@ -32,6 +32,8 @@ class Source:
     strip_zeros: bool = False
     contre_passation: Optional[str] = None
     remap: Dict[str, str] = field(default_factory=dict)
+    agreger: bool = False                 # cumuler les lignes d'un même dossier
+    facteur: float = 1.0                  # prorata appliqué au montant (ex. 7/12)
 
     @property
     def complete(self) -> bool:
