@@ -69,11 +69,51 @@ totaux débit/crédit, puis les éventuels éléments à compléter (centres
 analytiques manquants, centres de coût inconnus, sources en attente de
 comptes). Le code de retour est non nul si un déséquilibre est détecté.
 
+### Utilisation par double-clic (Windows, sans droits admin)
+
+Pour un poste sans environnement Python préparé, deux scripts évitent la ligne
+de commande :
+
+1. **`Installer.bat`** — à lancer **une seule fois** : vérifie la présence de
+   Python et installe le programme via `pip install --user` (aucun droit
+   administrateur requis).
+2. **`Lancer.bat`** — à double-cliquer **à chaque situation** : lance la
+   génération sur `config/situation.local.yaml` et garde la fenêtre ouverte
+   pour afficher le rapport.
+
+### Options de configuration des sources
+
+Outre les champs de base (feuille, colonnes, comptes, libellé, journal, date),
+une source « une ligne = un établissement » accepte deux options :
+
+- **`agreger`** : cumule toutes les lignes d'un même dossier avant émission,
+  pour ne produire qu'une seule écriture par dossier (au lieu d'une par ligne).
+- **`facteur`** : multiplicateur appliqué au montant avant le calcul du sens
+  débit/crédit (ex. lissage de charges sur 7 mois : `facteur: 0.5833` = 7/12).
+
+```yaml
+sources:
+  - fichier: "Charges_a_lisser.xlsx"
+    feuille: "Feuil1"
+    ligne_debut: 2
+    col_dossier: "B"
+    col_montant: "H"
+    compte_debit: "64140100"    # charge (classe 6) -> ligne analytique
+    compte_credit: "42868000"
+    libelle: "Lissage charges"
+    journal: "OS"
+    date_ecriture: "311226"
+    agreger: true               # une seule écriture par dossier sur le cumul
+    facteur: 0.5833333333       # multiplicateur du montant (7/12)
+```
+
 ## Structure du projet
 
 ```
 excel-to-quadra/
 ├── pyproject.toml              # métadonnées, dépendances, point d'entrée CLI
+├── Installer.bat               # installation par double-clic (Windows, pip --user)
+├── Lancer.bat                  # génération par double-clic (Windows)
 ├── config/
 │   └── exemple_situation.yaml  # configuration d'exemple commentée
 ├── src/excel_to_quadra/
@@ -93,7 +133,7 @@ excel-to-quadra/
 ## Tests
 
 ```bash
-pytest          # 62 tests
+pytest          # 66 tests
 pytest -v       # détail
 ```
 
