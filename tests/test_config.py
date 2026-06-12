@@ -60,3 +60,49 @@ def test_cle_obligatoire_manquante(tmp_path):
     chemin.write_text("dossier_entree: '/entree'", encoding="utf-8")
     with pytest.raises(ValueError, match="dossier_sortie"):
         charger_configuration(str(chemin))
+
+
+YAML_OPTIONS = """
+dossier_entree: "/entree"
+dossier_sortie: "/sortie"
+alias_dossiers:
+  "736": "723"
+analytique:
+  "723": "772301"
+sources:
+  - fichier: "test.xlsx"
+    feuille: "Feuil1"
+    ligne_debut: 2
+    col_dossier: "B"
+    col_montant: "H"
+    compte_credit: "40810000"
+    compte_debit: "62280000"
+    libelle: "Ventile"
+    journal: "OS"
+    date_ecriture: "310526"
+    ventilation:
+      "723":
+        - {centre: "772301", pourcent: 59.04}
+        - {centre: "772302", pourcent: 13.34}
+        - {centre: "772303", pourcent: 27.62}
+sources_paie: []
+"""
+
+
+def test_chargement_alias_et_ventilation(tmp_path):
+    chemin = tmp_path / "cfg.yaml"
+    chemin.write_text(YAML_OPTIONS, encoding="utf-8")
+    cfg = charger_configuration(str(chemin))
+    assert cfg.alias_dossiers == {"736": "723"}        # option globale
+    ventil = cfg.sources[0].ventilation["723"]
+    assert len(ventil) == 3
+    assert ventil[0]["centre"] == "772301"
+    assert ventil[0]["pourcent"] == 59.04              # converti en float
+
+
+def test_alias_dossiers_absent_par_defaut(tmp_path):
+    chemin = tmp_path / "cfg.yaml"
+    chemin.write_text(YAML_MINIMAL, encoding="utf-8")
+    cfg = charger_configuration(str(chemin))
+    assert cfg.alias_dossiers == {}                    # défaut : dict vide
+    assert cfg.sources[0].ventilation == {}

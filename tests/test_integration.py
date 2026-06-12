@@ -6,7 +6,8 @@ from openpyxl import Workbook
 
 from excel_to_quadra.config import (Composante, Configuration, Source, SourcePaie)
 from excel_to_quadra.moteur import (controler_equilibre, ecrire_fichiers,
-                                     generer_ecritures, generer_ecritures_paie)
+                                     generer_ecritures, generer_ecritures_paie,
+                                     nettoyer_sortie)
 
 CRLF = b"\r\n"
 
@@ -144,3 +145,105 @@ def test_agregation_cumule_un_seul_lot_par_dossier(tmp_path):
     debit = next(l for l in par_dossier["704"] if l.startswith("M") and l[41] == "D")
     assert int(debit[42:55]) == 150000          # 1000 + 500 = 1500 € cumulés
     assert sans_centre == []
+
+
+def test_nettoyage_supprime_les_orphelins_ecriture_quadra(tmp_path):
+    """Les *_ecriture_Quadra*.txt (y compris _contrepass) sont supprimés."""
+    sortie = tmp_path / "sortie"
+    sortie.mkdir()
+    (sortie / "999_ecriture_Quadra.txt").write_text("orphelin", encoding="cp1252")
+    (sortie / "704_ecriture_Quadra_contrepass.txt").write_text("x", encoding="cp1252")
+    supprimes = nettoyer_sortie(str(sortie))
+    assert not (sortie / "999_ecriture_Quadra.txt").exists()
+    assert "999_ecriture_Quadra.txt" in supprimes
+    assert "704_ecriture_Quadra_contrepass.txt" in supprimes   # le motif couvre le suffixe
+
+
+def test_nettoyage_preserve_les_autres_fichiers(tmp_path):
+    """notes.txt et donnees.xlsx ne correspondent pas au motif : conservés."""
+    sortie = tmp_path / "sortie"
+    sortie.mkdir()
+    (sortie / "notes.txt").write_text("note", encoding="utf-8")
+    (sortie / "donnees.xlsx").write_bytes(b"PK\x03\x04")
+    (sortie / "736_ecriture_Quadra.txt").write_text("orphelin", encoding="cp1252")
+    nettoyer_sortie(str(sortie))
+    assert (sortie / "notes.txt").exists()
+    assert (sortie / "donnees.xlsx").exists()
+    assert not (sortie / "736_ecriture_Quadra.txt").exists()
+
+
+def test_nettoyage_dossier_inexistant_sans_erreur(tmp_path):
+    """Dossier de sortie pas encore créé : aucun fichier, aucune exception."""
+    assert nettoyer_sortie(str(tmp_path / "pas_encore")) == []
+
+
+def test_alias_dossier_route_vers_la_cible(tmp_path):
+    """7736 -> dossier 723 (centre 772301) ; 7704 sans alias reste en 704."""
+    entree = tmp_path / "entree"
+    sortie = tmp_path / "sortie"
+    entree.mkdir()
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "CRE"
+    for i, (code, montant) in enumerate(
+            [("7736 - ALIASEE", 100.0), ("7704 - NORMALE", 50.0)], start=3):
+        ws.cell(i, 1, code)
+        ws.cell(i, 3, montant)
+    wb.save(entree / "alias.xlsx")
+
+    cfg = Configuration(
+        dossier_entree=str(entree), dossier_sortie=str(sortie),
+        analytique={"723": "772301", "704": "770401"},
+        centre_vers_dossier={}, sources_paie=[],
+        alias_dossiers={"736": "723"},
+        sources=[Source(
+            fichier="alias.xlsx", feuille="CRE", ligne_debut=3,
+            col_dossier="A", col_montant="C", extraire_code=True,
+            compte_credit="40810000", compte_debit="62280000",
+            libelle="ALIAS TEST", journal="OS", date_ecriture="310526")])
+
+    par_dossier, sans_centre = generer_ecritures(cfg.sources, cfg)
+    assert "723" in par_dossier and "736" not in par_dossier   # routé, pas de 736
+    assert "704" in par_dossier                                # sans alias inchangé
+    i_723 = next(l for l in par_dossier["723"] if l.startswith("I"))
+    assert i_723[19:29].strip() == "772301"                    # centre de la cible
+    assert sans_centre == []
+
+
+def test_agregation_puis_ventilation(tmp_path):
+    """agreger=True cumule, puis la ventilation répartit l'écriture agrégée."""
+    entree = tmp_path / "entree"
+    sortie = tmp_path / "sortie"
+    entree.mkdir()
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "CRE"
+    for i, (code, montant) in enumerate(
+            [("704", 1000.0), ("704", 500.0)], start=2):
+        ws.cell(i, 1, code)
+        ws.cell(i, 3, montant)
+    wb.save(entree / "aggvent.xlsx")
+
+    cfg = Configuration(
+        dossier_entree=str(entree), dossier_sortie=str(sortie),
+        analytique={"704": "770401"}, centre_vers_dossier={}, sources_paie=[],
+        sources=[Source(
+            fichier="aggvent.xlsx", feuille="CRE", ligne_debut=2,
+            col_dossier="A", col_montant="C",
+            compte_credit="40810000", compte_debit="62280000",
+            libelle="AGG VENT", journal="OS", date_ecriture="310526",
+            agreger=True,
+            ventilation={"704": [{"centre": "770401", "pourcent": 60.0},
+                                 {"centre": "770402", "pourcent": 40.0}]})])
+
+    par_dossier, _ = generer_ecritures(cfg.sources, cfg)
+    # une seule écriture agrégée (2 M) ventilée en 2 lignes I sommant au cumul 1500 €
+    assert sum(1 for l in par_dossier["704"] if l.startswith("M")) == 2
+    i = [l for l in par_dossier["704"] if l.startswith("I")]
+    assert len(i) == 2
+    m_charge = next(int(l[42:55]) for l in par_dossier["704"]
+                    if l.startswith("M") and l[1:9] == "62280000")
+    assert m_charge == 150000
+    assert sum(int(l[6:19]) for l in i) == m_charge            # 90000 + 60000

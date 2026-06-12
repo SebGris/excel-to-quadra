@@ -10,7 +10,8 @@ import argparse
 import sys
 
 from .config import charger_configuration
-from .moteur import ecrire_fichiers, generer_ecritures, generer_ecritures_paie
+from .moteur import (ecrire_fichiers, generer_ecritures, generer_ecritures_paie,
+                     nettoyer_sortie)
 
 
 def main(argv=None) -> int:
@@ -23,6 +24,10 @@ def main(argv=None) -> int:
     cfg = charger_configuration(args.config)
     pretes = [s for s in cfg.sources if s.complete]
     attente_simple = [s.libelle for s in cfg.sources if not s.complete]
+
+    # Purge des fichiers générés d'un run précédent (jamais les autres fichiers),
+    # avant toute écriture, pour ne pas réimporter un dossier devenu orphelin.
+    nettoyer_sortie(cfg.dossier_sortie)
 
     print("Écritures d'arrêté :")
     par_dossier, sans_centre = generer_ecritures(pretes, cfg)

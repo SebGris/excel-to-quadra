@@ -7,12 +7,14 @@ from excel_to_quadra.moteur import ajouter_ecriture_pair, controler_equilibre
 
 
 def _emettre(montant, extourne=False, centre="770401",
-             compte_credit="40810000", compte_debit="62280000", facteur=1.0):
+             compte_credit="40810000", compte_debit="62280000", facteur=1.0,
+             ventilation=None):
     par_dossier = defaultdict(list)
     sans_centre = []
     ajouter_ecriture_pair(par_dossier, "704", "OS", "310526", "Lib",
                           compte_credit, compte_debit, montant,
-                          centre, sans_centre, extourne, facteur=facteur)
+                          centre, sans_centre, extourne, facteur=facteur,
+                          ventilation=ventilation)
     return par_dossier["704"], sans_centre
 
 
@@ -91,6 +93,49 @@ class TestFacteur:
         assert _sens(lignes, "62280000") == "C"     # charge passe au crédit
         d, c = controler_equilibre(lignes)
         assert d == c == 5000                        # |100 * -0,5| = 50 €
+
+
+class TestVentilation:
+    def _i_lignes(self, lignes):
+        return [l for l in lignes if l.startswith("I")]
+
+    def _m_charge(self, lignes):
+        return next(int(l[42:55]) for l in lignes
+                    if l.startswith("M") and l[1:9] == "62280000")
+
+    def test_50_50_avec_solde_sur_la_derniere(self):
+        ventil = [{"centre": "770401", "pourcent": 50.0},
+                  {"centre": "770402", "pourcent": 50.0}]
+        lignes, _ = _emettre(145.35, ventilation=ventil)
+        i = self._i_lignes(lignes)
+        assert len(i) == 2
+        assert [int(l[6:19]) for l in i] == [7268, 7267]   # 72,68 puis solde 72,67
+        assert [l[1:6] for l in i] == ["05000", "05000"]   # pourcentages réels
+        assert sum(int(l[6:19]) for l in i) == self._m_charge(lignes)
+
+    def test_trois_centres_somme_exacte_au_montant_m(self):
+        ventil = [{"centre": "C1", "pourcent": 59.04},
+                  {"centre": "C2", "pourcent": 13.34},
+                  {"centre": "C3", "pourcent": 27.62}]
+        lignes, _ = _emettre(1000.0, ventilation=ventil)
+        i = self._i_lignes(lignes)
+        assert len(i) == 3
+        assert [l[1:6] for l in i] == ["05904", "01334", "02762"]
+        assert sum(int(l[6:19]) for l in i) == self._m_charge(lignes)
+
+    def test_dossier_sans_ventilation_inchange(self):
+        lignes, _ = _emettre(100.0)                        # une seule ligne I à 100 %
+        i = self._i_lignes(lignes)
+        assert len(i) == 1
+        assert i[0][1:6] == "10000"
+        assert i[0][19:29].strip() == "770401"
+
+    def test_ventilation_prime_meme_sans_centre_par_defaut(self):
+        ventil = [{"centre": "880001", "pourcent": 100.0}]
+        lignes, sans_centre = _emettre(100.0, centre=None, ventilation=ventil)
+        i = self._i_lignes(lignes)
+        assert len(i) == 1 and i[0][19:29].strip() == "880001"
+        assert sans_centre == []                           # pas de signalement
 
 
 class TestControlerEquilibre:

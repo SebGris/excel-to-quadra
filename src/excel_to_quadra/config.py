@@ -34,6 +34,8 @@ class Source:
     remap: Dict[str, str] = field(default_factory=dict)
     agreger: bool = False                 # cumuler les lignes d'un même dossier
     facteur: float = 1.0                  # prorata appliqué au montant (ex. 7/12)
+    # ventilation analytique multi-centres : dossier -> [{centre, pourcent}, ...]
+    ventilation: Dict[str, List[dict]] = field(default_factory=dict)
 
     @property
     def complete(self) -> bool:
@@ -74,6 +76,16 @@ class Configuration:
     centre_vers_dossier: Dict[str, str]   # centre  -> dossier (table inverse)
     sources: List[Source]
     sources_paie: List[SourcePaie]
+    alias_dossiers: Dict[str, str] = field(default_factory=dict)  # dossier lu -> cible
+
+
+def _normaliser_ventilation(brut) -> Dict[str, List[dict]]:
+    """Normalise une table de ventilation : dossier -> [{centre, pourcent}, ...]."""
+    return {
+        str(dossier): [{"centre": str(e["centre"]), "pourcent": float(e["pourcent"])}
+                       for e in liste]
+        for dossier, liste in (brut or {}).items()
+    }
 
 
 def charger_configuration(chemin: str) -> Configuration:
@@ -93,7 +105,11 @@ def charger_configuration(chemin: str) -> Configuration:
     for centre, dossier in (brut.get("centres_supplementaires") or {}).items():
         centre_vers_dossier[str(centre)] = str(dossier)
 
-    sources = [Source(**{**s, "remap": {str(k): str(v) for k, v in (s.get("remap") or {}).items()}})
+    alias_dossiers = {str(k): str(v) for k, v in (brut.get("alias_dossiers") or {}).items()}
+
+    sources = [Source(**{**s,
+                         "remap": {str(k): str(v) for k, v in (s.get("remap") or {}).items()},
+                         "ventilation": _normaliser_ventilation(s.get("ventilation"))})
                for s in (brut.get("sources") or [])]
     sources_paie = [
         SourcePaie(**{**s, "composantes": [Composante(**c) for c in s["composantes"]]})
@@ -106,4 +122,5 @@ def charger_configuration(chemin: str) -> Configuration:
         centre_vers_dossier=centre_vers_dossier,
         sources=sources,
         sources_paie=sources_paie,
+        alias_dossiers=alias_dossiers,
     )
