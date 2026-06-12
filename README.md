@@ -69,6 +69,11 @@ totaux débit/crédit, puis les éventuels éléments à compléter (centres
 analytiques manquants, centres de coût inconnus, sources en attente de
 comptes). Le code de retour est non nul si un déséquilibre est détecté.
 
+Au démarrage, le dossier de sortie est **purgé des fichiers générés d'un run
+précédent** (motif `*_ecriture_Quadra*.txt` uniquement ; tout autre fichier est
+préservé), afin qu'un dossier devenu orphelin — supprimé, renommé ou aliasé — ne
+soit pas réimporté par erreur.
+
 ### Utilisation par double-clic (Windows, sans droits admin)
 
 Pour un poste sans environnement Python préparé, deux scripts évitent la ligne
@@ -84,12 +89,17 @@ de commande :
 ### Options de configuration des sources
 
 Outre les champs de base (feuille, colonnes, comptes, libellé, journal, date),
-une source « une ligne = un établissement » accepte deux options :
+une source « une ligne = un établissement » accepte plusieurs options :
 
 - **`agreger`** : cumule toutes les lignes d'un même dossier avant émission,
   pour ne produire qu'une seule écriture par dossier (au lieu d'une par ligne).
 - **`facteur`** : multiplicateur appliqué au montant avant le calcul du sens
   débit/crédit (ex. lissage de charges sur 7 mois : `facteur: 0.5833` = 7/12).
+- **`ventilation`** : répartit la ligne analytique d'un dossier sur plusieurs
+  centres (clé = dossier, valeur = liste de `{centre, pourcent}`). La ligne `M`
+  de classe 6/7 est alors suivie d'une ligne `I` par centre ; la dernière reçoit
+  le solde pour que la somme des lignes `I` égale exactement la ligne `M`.
+  Prioritaire sur le centre par défaut, et compatible avec `agreger` / `facteur`.
 
 ```yaml
 sources:
@@ -105,6 +115,23 @@ sources:
     date_ecriture: "311226"
     agreger: true               # une seule écriture par dossier sur le cumul
     facteur: 0.5833333333       # multiplicateur du montant (7/12)
+    ventilation:                # répartition analytique multi-centres
+      "702":
+        - {centre: "770201", pourcent: 59.04}
+        - {centre: "770202", pourcent: 13.34}
+        - {centre: "770203", pourcent: 27.62}
+```
+
+### Alias de dossiers (option globale)
+
+`alias_dossiers` (clé de premier niveau) redirige un code dossier lu vers un
+autre : les écritures sont produites dans le dossier **cible**, avec le centre
+analytique de la cible. Contrairement au `remap`, le code lu n'est pas conservé
+comme centre.
+
+```yaml
+alias_dossiers:
+  "736": "723"   # tout 736 lu est comptabilisé dans le dossier 723
 ```
 
 ## Structure du projet
@@ -133,7 +160,7 @@ excel-to-quadra/
 ## Tests
 
 ```bash
-pytest          # 66 tests
+pytest          # 77 tests
 pytest -v       # détail
 ```
 
