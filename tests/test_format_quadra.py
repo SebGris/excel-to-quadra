@@ -61,6 +61,13 @@ class TestLigneM:
         assert l[99:107] == "ABCDEFGH"
         assert len(l) == LONGUEUR_LIGNE_M
 
+    def test_numero_piece_ne_pollue_pas_le_reste_de_la_zone(self):
+        l = formater_ligne_m("62280000", "OS", "310526", "Lib", "D", 1.0, numero_piece="IMPORT")
+        assert l[99:107] == "IMPORT  "              # seule la zone pièce porte le n°
+        assert l[55:99] == " " * 44                 # pos 56-99 à blanc
+        assert l[107:] == " " * 39                  # pos 108-146 à blanc
+        assert len(l) == LONGUEUR_LIGNE_M
+
 
 class TestLigneI:
     def test_longueur(self):
