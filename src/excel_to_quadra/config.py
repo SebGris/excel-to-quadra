@@ -36,6 +36,10 @@ class Source:
     facteur: float = 1.0                  # prorata appliqué au montant (ex. 7/12)
     # ventilation analytique multi-centres : dossier -> [{centre, pourcent}, ...]
     ventilation: Dict[str, List[dict]] = field(default_factory=dict)
+    # filtre de dates optionnel (bornes AAAAMMJJ incluses) sur une colonne date
+    col_date: Optional[str] = None
+    date_min: Optional[str] = None
+    date_max: Optional[str] = None
 
     @property
     def complete(self) -> bool:

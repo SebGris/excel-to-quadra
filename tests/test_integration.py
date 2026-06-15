@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 """Tests d'intégration : classeurs Excel générés à la volée, chaîne complète."""
 
+from datetime import datetime
+
 import pytest
 from openpyxl import Workbook
 
@@ -247,3 +249,68 @@ def test_agregation_puis_ventilation(tmp_path):
                     if l.startswith("M") and l[1:9] == "62280000")
     assert m_charge == 150000
     assert sum(int(l[6:19]) for l in i) == m_charge            # 90000 + 60000
+
+
+def _generer_avec_dates(tmp_path, lignes, **filtre):
+    """lignes : liste de (code, montant, valeur_date) en colonnes A/C/E."""
+    entree = tmp_path / "entree"
+    sortie = tmp_path / "sortie"
+    entree.mkdir()
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "CRE"
+    for i, (code, montant, valeur_date) in enumerate(lignes, start=2):
+        ws.cell(i, 1, code)
+        ws.cell(i, 3, montant)
+        if valeur_date is not None:
+            ws.cell(i, 5, valeur_date)                 # colonne E
+    wb.save(entree / "dates.xlsx")
+    cfg = Configuration(
+        dossier_entree=str(entree), dossier_sortie=str(sortie),
+        analytique={"704": "770401"}, centre_vers_dossier={}, sources_paie=[],
+        sources=[Source(
+            fichier="dates.xlsx", feuille="CRE", ligne_debut=2,
+            col_dossier="A", col_montant="C",
+            compte_credit="40810000", compte_debit="62280000",
+            libelle="DATE TEST", journal="OS", date_ecriture="310526",
+            **filtre)])
+    par_dossier, _ = generer_ecritures(cfg.sources, cfg)
+    return par_dossier
+
+
+def test_filtre_date_exclut_avant_la_borne_min(tmp_path):
+    pd = _generer_avec_dates(tmp_path, [("704", 100.0, "20251231")],
+                             col_date="E", date_min="20260101")
+    assert "704" not in pd                             # 31/12/2025 hors période
+
+
+def test_filtre_date_conserve_dans_la_periode(tmp_path):
+    pd = _generer_avec_dates(tmp_path, [("704", 100.0, "20260531")],
+                             col_date="E", date_min="20260101")
+    assert "704" in pd
+
+
+def test_filtre_date_max_exclut_apres_la_borne(tmp_path):
+    pd = _generer_avec_dates(tmp_path, [("704", 100.0, "20260601")],
+                             col_date="E", date_max="20260531")
+    assert "704" not in pd                             # bornes incluses
+
+
+def test_filtre_date_accepte_un_datetime(tmp_path):
+    pd = _generer_avec_dates(tmp_path, [("704", 100.0, datetime(2025, 12, 31))],
+                             col_date="E", date_min="20260101")
+    assert "704" not in pd                             # datetime == chaîne équivalente
+
+
+def test_sans_filtre_date_comportement_inchange(tmp_path):
+    pd = _generer_avec_dates(tmp_path, [("704", 100.0, "20251231")])  # aucun filtre
+    assert "704" in pd                                 # toutes les lignes conservées
+
+
+def test_filtre_date_applique_avant_agregation(tmp_path):
+    pd = _generer_avec_dates(
+        tmp_path,
+        [("704", 1000.0, "20260531"), ("704", 500.0, "20251231")],
+        col_date="E", date_min="20260101", agreger=True)
+    debit = next(l for l in pd["704"] if l.startswith("M") and l[41] == "D")
+    assert int(debit[42:55]) == 100000                 # cumul = 1000 €, pas 1500

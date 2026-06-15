@@ -36,6 +36,20 @@ def _est_charge_ou_produit(compte: str) -> bool:
     return str(compte)[:1] in ("6", "7")
 
 
+def _normaliser_date(valeur) -> Optional[str]:
+    """Renvoie la date en chaîne AAAAMMJJ (8 chiffres), ou None si inexploitable.
+
+    Deux formes possibles selon l'export : une chaîne « 20260531 » déjà au bon
+    format, ou un datetime/date openpyxl (alors formaté en %Y%m%d).
+    """
+    if valeur is None:
+        return None
+    if hasattr(valeur, "strftime"):            # datetime / date
+        return valeur.strftime("%Y%m%d")
+    texte = str(valeur).strip()
+    return texte if len(texte) == 8 and texte.isdigit() else None
+
+
 def ajouter_ecriture_pair(par_dossier: ParDossier, dossier: str, journal: str,
                           date: str, libelle: str, compte_credit: str,
                           compte_debit: str, montant: float,
@@ -104,6 +118,12 @@ def generer_ecritures(sources: List[Source], cfg: Configuration,
         c_montant = column_index_from_string(src.col_montant)
         date = src.contre_passation if extourne else src.date_ecriture
 
+        # Filtre de dates : actif uniquement si une colonne date ET au moins une
+        # borne sont renseignées. Comparaison lexicographique d'AAAAMMJJ (= ordre
+        # chronologique). Appliqué avant l'agrégation pour ne cumuler que la période.
+        c_date = column_index_from_string(src.col_date) if src.col_date else None
+        filtre_actif = c_date is not None and (src.date_min or src.date_max)
+
         # En mode agrégé, on cumule (dossier, centre) -> montant et on émet
         # une seule écriture par dossier après la boucle, au lieu de ligne à ligne.
         cumul: Dict[Tuple[str, Optional[str]], float] = defaultdict(float)
@@ -114,6 +134,11 @@ def generer_ecritures(sources: List[Source], cfg: Configuration,
             montant = lire_montant(ws.cell(r, c_montant).value)
             if code_brut is None or montant is None:
                 continue
+            if filtre_actif:
+                d = _normaliser_date(ws.cell(r, c_date).value)
+                if (d is None or (src.date_min and d < src.date_min)
+                        or (src.date_max and d > src.date_max)):
+                    continue                   # date absente/hors bornes : ignorée
             # Alias : le dossier lu est remplacé par sa cible (centre résolu sur
             # la cible) — contrairement au remap, le code lu n'est pas conservé.
             code_brut = cfg.alias_dossiers.get(code_brut, code_brut)

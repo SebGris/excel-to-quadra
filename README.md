@@ -100,6 +100,12 @@ une source « une ligne = un établissement » accepte plusieurs options :
   de classe 6/7 est alors suivie d'une ligne `I` par centre ; la dernière reçoit
   le solde pour que la somme des lignes `I` égale exactement la ligne `M`.
   Prioritaire sur le centre par défaut, et compatible avec `agreger` / `facteur`.
+- **`col_date` / `date_min` / `date_max`** : filtre de dates optionnel. Quand
+  `col_date` (lettre de colonne) et au moins une borne (`date_min` / `date_max`,
+  format `AAAAMMJJ`, incluses) sont renseignés, seules les lignes dont la date
+  tombe dans la période sont retenues — utile pour un exercice non encore
+  clôturé dont l'export mélange plusieurs années. Le filtre s'applique **avant**
+  `agreger`, donc les cumuls ne portent que sur la période.
 
 ```yaml
 sources:
@@ -115,6 +121,9 @@ sources:
     date_ecriture: "311226"
     agreger: true               # une seule écriture par dossier sur le cumul
     facteur: 0.5833333333       # multiplicateur du montant (7/12)
+    col_date: "G"               # colonne contenant la date de l'écriture
+    date_min: "20260101"        # bornes AAAAMMJJ incluses : ne garder que 2026
+    date_max: "20261231"
     ventilation:                # répartition analytique multi-centres
       "702":
         - {centre: "770201", pourcent: 59.04}
@@ -160,7 +169,7 @@ excel-to-quadra/
 ## Tests
 
 ```bash
-pytest          # 77 tests
+pytest          # 83 tests
 pytest -v       # détail
 ```
 
