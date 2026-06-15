@@ -154,6 +154,26 @@ alias_dossiers:
   "736": "723"   # tout 736 lu est comptabilisé dans le dossier 723
 ```
 
+### Numéro de pièce (option globale, surchargeable par source)
+
+`numero_piece` (clé de premier niveau) inscrit un n° de pièce sur chaque ligne
+`M` générée (position 100, 8 caractères ; les lignes `I` analytiques n'en
+portent pas). Une source peut le **surcharger** via son propre champ
+`numero_piece` (la valeur de la source prime sur la globale).
+
+Usage : dans un journal partagé (ex. `OS`), cela distingue les écritures
+**importées** par le programme (avec n° de pièce) de celles **saisies
+manuellement** (quasi toujours sans n° de pièce). Absent, le champ reste à
+blanc — les fichiers existants ne changent pas d'un octet.
+
+```yaml
+numero_piece: "IMPORT"      # appliqué à toutes les écritures générées
+sources:
+  - fichier: "Cas_particulier.xlsx"
+    # ... champs de base ...
+    numero_piece: "IMPORT2" # surcharge pour cette source uniquement
+```
+
 ## Structure du projet
 
 ```
@@ -180,7 +200,7 @@ excel-to-quadra/
 ## Tests
 
 ```bash
-pytest          # 91 tests
+pytest          # 98 tests
 pytest -v       # détail
 ```
 

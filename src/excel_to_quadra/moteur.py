@@ -59,7 +59,8 @@ def ajouter_ecriture_pair(par_dossier: ParDossier, dossier: str, journal: str,
                           ventilation: Optional[List[dict]] = None,
                           centres_connus: Optional[set] = None,
                           centres_inconnus: Optional[list] = None,
-                          fichier: Optional[str] = None) -> None:
+                          fichier: Optional[str] = None,
+                          numero_piece: Optional[str] = None) -> None:
     """Ajoute une écriture équilibrée (M crédit + M débit) et sa/ses ligne(s) I.
 
     Sans ventilation : une ligne I à 100 % vers `centre`. Avec ventilation (liste
@@ -84,7 +85,8 @@ def ajouter_ecriture_pair(par_dossier: ParDossier, dossier: str, journal: str,
     # part de charge/produit (classe 6/7) écrite en premier, suivie de sa ligne I
     legs.sort(key=lambda x: 0 if _est_charge_ou_produit(x[0]) else 1)
     for compte, sens in legs:
-        par_dossier[dossier].append(formater_ligne_m(compte, journal, date, libelle, sens, montant))
+        par_dossier[dossier].append(
+            formater_ligne_m(compte, journal, date, libelle, sens, montant, numero_piece))
         if not _est_charge_ou_produit(compte):
             continue
         if ventilation:                        # ventilation prioritaire sur le centre
@@ -141,6 +143,7 @@ def generer_ecritures(sources: List[Source], cfg: Configuration,
         # chronologique). Appliqué avant l'agrégation pour ne cumuler que la période.
         c_date = column_index_from_string(src.col_date) if src.col_date else None
         filtre_actif = c_date is not None and (src.date_min or src.date_max)
+        numero_piece = src.numero_piece or cfg.numero_piece   # surcharge source > globale
 
         # En mode agrégé, on cumule (dossier, centre) -> montant et on émet
         # une seule écriture par dossier après la boucle, au lieu de ligne à ligne.
@@ -172,7 +175,7 @@ def generer_ecritures(sources: List[Source], cfg: Configuration,
                                       centre, sans_centre, extourne, facteur=src.facteur,
                                       ventilation=src.ventilation.get(dossier),
                                       centres_connus=connus, centres_inconnus=centres_inconnus,
-                                      fichier=src.fichier)
+                                      fichier=src.fichier, numero_piece=numero_piece)
 
         for dossier, centre in sorted(cumul, key=lambda k: (k[0], k[1] or "")):
             ajouter_ecriture_pair(par_dossier, dossier, src.journal, date, src.libelle,
@@ -181,7 +184,7 @@ def generer_ecritures(sources: List[Source], cfg: Configuration,
                                   centre, sans_centre, extourne, facteur=src.facteur,
                                   ventilation=src.ventilation.get(dossier),
                                   centres_connus=connus, centres_inconnus=centres_inconnus,
-                                  fichier=src.fichier)
+                                  fichier=src.fichier, numero_piece=numero_piece)
     return par_dossier, sans_centre
 
 
@@ -208,6 +211,7 @@ def generer_ecritures_paie(sources: List[SourcePaie], cfg: Configuration,
         ws = cache_wb[chemin][src.feuille]
         c_centre = column_index_from_string(src.col_centre)
         date = src.contre_passation if extourne else src.date_ecriture
+        numero_piece = src.numero_piece or cfg.numero_piece   # surcharge source > globale
 
         # Agrégation des montants par centre de coût, composante par composante
         cumul: Dict[str, Dict[str, float]] = defaultdict(lambda: defaultdict(float))
@@ -238,7 +242,7 @@ def generer_ecritures_paie(sources: List[SourcePaie], cfg: Configuration,
                     continue
                 ajouter_ecriture_pair(par_dossier, dossier, src.journal, date, comp.libelle,
                                       comp.compte_credit, comp.compte_debit, montant,
-                                      centre, None, extourne)
+                                      centre, None, extourne, numero_piece=numero_piece)
     return par_dossier, sorted(set(centres_inconnus)), sorted(set(en_attente))
 
 

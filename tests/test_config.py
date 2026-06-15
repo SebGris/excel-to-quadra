@@ -139,3 +139,11 @@ def test_centres_connus_union_des_trois_sources(tmp_path):
     cfg = charger_configuration(str(chemin))
     # (a) analytique, (b) centres_supplementaires, (c) centres des ventilations
     assert cfg.centres_connus() == {"179101", "179102", "179103"}
+
+
+def test_numero_piece_global_et_defaut_source(tmp_path):
+    chemin = tmp_path / "cfg.yaml"
+    chemin.write_text(YAML_MINIMAL + '\nnumero_piece: "IMPORT"\n', encoding="utf-8")
+    cfg = charger_configuration(str(chemin))
+    assert cfg.numero_piece == "IMPORT"                # option globale chargée
+    assert cfg.sources[0].numero_piece is None         # pas de surcharge -> None par défaut

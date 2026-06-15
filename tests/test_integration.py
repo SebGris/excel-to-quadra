@@ -426,3 +426,38 @@ def test_deux_fichiers_paie_centres_non_routes_distincts(tmp_path):
 def test_tous_centres_paie_routes_aucun_signalement(tmp_path):
     inconnus = _generer_paie_centres(tmp_path, [("A.xlsx", [("770401", 100.0)])])
     assert inconnus == []
+
+
+def _config_numero_piece(tmp_path, numero_piece_global, numero_piece_source):
+    entree = tmp_path / "entree"
+    sortie = tmp_path / "sortie"
+    entree.mkdir()
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "CRE"
+    ws.cell(2, 1, "704")
+    ws.cell(2, 3, 100.0)
+    wb.save(entree / "p.xlsx")
+    source = Source(
+        fichier="p.xlsx", feuille="CRE", ligne_debut=2, col_dossier="A",
+        col_montant="C", compte_credit="40810000", compte_debit="62280000",
+        libelle="X", journal="OS", date_ecriture="310526",
+        numero_piece=numero_piece_source)
+    cfg = Configuration(
+        dossier_entree=str(entree), dossier_sortie=str(sortie),
+        analytique={"704": "770401"}, centre_vers_dossier={}, sources_paie=[],
+        sources=[source], numero_piece=numero_piece_global)
+    par, _ = generer_ecritures(cfg.sources, cfg)
+    return next(l for l in par["704"] if l.startswith("M"))
+
+
+def test_numero_piece_source_prime_sur_la_globale(tmp_path):
+    m = _config_numero_piece(tmp_path, numero_piece_global="GLOBAL",
+                             numero_piece_source="SOURCE")
+    assert m[99:107] == "SOURCE  "
+
+
+def test_numero_piece_globale_quand_source_absente(tmp_path):
+    m = _config_numero_piece(tmp_path, numero_piece_global="GLOBAL",
+                             numero_piece_source=None)
+    assert m[99:107] == "GLOBAL  "

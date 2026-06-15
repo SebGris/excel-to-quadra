@@ -40,6 +40,7 @@ class Source:
     col_date: Optional[str] = None
     date_min: Optional[str] = None
     date_max: Optional[str] = None
+    numero_piece: Optional[str] = None    # surcharge le n° de pièce global
 
     @property
     def complete(self) -> bool:
@@ -70,6 +71,7 @@ class SourcePaie:
     date_ecriture: str
     composantes: List[Composante]
     contre_passation: Optional[str] = None
+    numero_piece: Optional[str] = None    # surcharge le n° de pièce global
 
 
 @dataclass
@@ -81,6 +83,7 @@ class Configuration:
     sources: List[Source]
     sources_paie: List[SourcePaie]
     alias_dossiers: Dict[str, str] = field(default_factory=dict)  # dossier lu -> cible
+    numero_piece: Optional[str] = None    # n° de pièce global (journal partagé)
 
     def centres_connus(self) -> set:
         """Ensemble des centres analytiques valides.
@@ -141,4 +144,5 @@ def charger_configuration(chemin: str) -> Configuration:
         sources=sources,
         sources_paie=sources_paie,
         alias_dossiers=alias_dossiers,
+        numero_piece=brut.get("numero_piece"),
     )

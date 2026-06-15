@@ -38,6 +38,29 @@ class TestLigneM:
         with pytest.raises(ValueError):
             formater_ligne_m("60000000", "OS", "310526", "Lib", "X", 1.0)
 
+    def test_numero_piece_aux_positions_100_107(self):
+        l = formater_ligne_m("62280000", "OS", "310526", "Lib", "D", 1.0, numero_piece="IMPORT")
+        assert l[99:107] == "IMPORT  "          # pos 100-107 : « IMPORT » + 2 espaces
+        assert len(l) == LONGUEUR_LIGNE_M
+
+    def test_numero_piece_ne_decale_pas_les_positions_1_55(self):
+        sans = formater_ligne_m("62280000", "OS", "310526", "Cout paie 0526", "D", 1234.56)
+        avec = formater_ligne_m("62280000", "OS", "310526", "Cout paie 0526", "D", 1234.56,
+                                numero_piece="IMPORT")
+        assert avec[:55] == sans[:55]            # compte/journal/date/libellé/sens/montant
+        assert avec[99:107] == "IMPORT  "
+        assert len(avec) == LONGUEUR_LIGNE_M
+
+    def test_sans_numero_piece_zone_piece_a_blanc(self):
+        l = formater_ligne_m("62280000", "OS", "310526", "Lib", "D", 1.0)
+        assert l[99:107] == " " * 8
+        assert l[55:] == " " * 91                # comportement strictement inchangé
+
+    def test_numero_piece_tronque_a_8(self):
+        l = formater_ligne_m("62280000", "OS", "310526", "Lib", "D", 1.0, numero_piece="ABCDEFGHIJ")
+        assert l[99:107] == "ABCDEFGH"
+        assert len(l) == LONGUEUR_LIGNE_M
+
 
 class TestLigneI:
     def test_longueur(self):

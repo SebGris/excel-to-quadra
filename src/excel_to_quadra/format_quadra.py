@@ -9,9 +9,14 @@ Référence : spécification Quadratus « Fichier d'entrée ASCII dans QuadraCOM
 """
 
 from decimal import ROUND_HALF_UP, Decimal
+from typing import Optional
 
 LONGUEUR_LIGNE_M = 146
 LONGUEUR_LIGNE_I = 39
+
+#: Position (1-indexée) et longueur du n° de pièce dans l'enregistrement M.
+POS_NUMERO_PIECE = 100
+LONGUEUR_NUMERO_PIECE = 8
 
 
 def euros_vers_centimes(montant_euros: float) -> int:
@@ -26,11 +31,16 @@ def euros_vers_centimes(montant_euros: float) -> int:
 
 
 def formater_ligne_m(compte: str, journal: str, date_jjmmaa: str,
-                     libelle: str, sens: str, montant_euros: float) -> str:
+                     libelle: str, sens: str, montant_euros: float,
+                     numero_piece: Optional[str] = None) -> str:
     """Construit une ligne d'écriture Quadra de type M (146 caractères).
 
     Champs obligatoires de la spécification : type, compte (8), journal (2),
     folio « 000 », date JJMMAA, sens D/C, montant en centimes sur 13 caractères.
+
+    Le n° de pièce optionnel est inscrit dans la zone blanche en position 100
+    (8 c., justifié à gauche), sans décaler les champs 1-55 ni changer la
+    longueur. Absent (None) : la zone reste à blanc (comportement inchangé).
     """
     if sens not in ("D", "C"):
         raise ValueError(f"Sens invalide : {sens!r} (attendu 'D' ou 'C')")
@@ -45,7 +55,12 @@ def formater_ligne_m(compte: str, journal: str, date_jjmmaa: str,
         + sens                                       # pos 42    : sens D/C
         + str(euros_vers_centimes(montant_euros)).rjust(13, "0")  # pos 43-55
     )
-    return ligne.ljust(LONGUEUR_LIGNE_M)
+    ligne = ligne.ljust(LONGUEUR_LIGNE_M)
+    if numero_piece:                                 # zone blanche en position 100
+        i = POS_NUMERO_PIECE - 1                     # passage en index 0
+        piece = str(numero_piece).ljust(LONGUEUR_NUMERO_PIECE)[:LONGUEUR_NUMERO_PIECE]
+        ligne = ligne[:i] + piece + ligne[i + LONGUEUR_NUMERO_PIECE:]
+    return ligne
 
 
 def formater_ligne_i(centre: str, montant_euros: float, pourcent: float = 100.0) -> str:
