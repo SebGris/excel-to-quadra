@@ -70,7 +70,7 @@ class TestChaineComplete:
         assert "704" in par_dossier                 # 100 € comptabilisés
         assert "705" not in par_dossier             # montant nul écarté
         assert "799" in par_dossier                 # écriture produite même sans centre
-        assert ("799", "OETH TEST") in sans_centre  # ... mais signalée
+        assert ("799", "OETH TEST", "provision.xlsx") in sans_centre  # ... mais signalée
 
     def test_agregation_paie_et_routage(self, environnement):
         par_paie, inconnus, attente = generer_ecritures_paie(
@@ -81,7 +81,7 @@ class TestChaineComplete:
         # montant négatif agrégé seul -> sens inversés sur le dossier 705
         charge_705 = next(l for l in par_paie["705"] if l[1:9] == "64133820")
         assert charge_705[41] == "C"
-        assert inconnus == ["999999"]               # centre inconnu signalé
+        assert inconnus == [("999999", "preca.xlsx")]   # centre inconnu + fichier
         assert attente == []
 
     def test_fichiers_disque_format_et_encodage(self, environnement):
@@ -378,3 +378,51 @@ def test_centre_inconnu_signale_sans_bloquer(tmp_path):
     centre, dossier, libelle, fichier = sig[0]
     assert centre == "179104" and dossier == "790"
     assert libelle == "CENTRE TEST" and fichier == "centres.xlsx"
+
+
+def _generer_paie_centres(tmp_path, fichiers):
+    """fichiers : liste de (nom_fichier, [(centre, montant), ...]).
+
+    Renvoie la liste centres_inconnus de generer_ecritures_paie.
+    """
+    entree = tmp_path / "entree"
+    sortie = tmp_path / "sortie"
+    entree.mkdir()
+    sources = []
+    for nom, lignes in fichiers:
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Feuil1"
+        for i, (centre, montant) in enumerate(lignes, start=2):
+            ws.cell(i, 4, centre)                      # colonne D : centre de coût
+            ws.cell(i, 14, montant)                    # colonne N : composante
+        wb.save(entree / nom)
+        sources.append(SourcePaie(
+            fichier=nom, feuille="Feuil1", ligne_debut=2, col_centre="D",
+            journal="OS", date_ecriture="310526", contre_passation=None,
+            composantes=[Composante(col="N", compte_debit="64133820",
+                                    compte_credit="42822000", libelle="PRIME")]))
+    cfg = Configuration(
+        dossier_entree=str(entree), dossier_sortie=str(sortie),
+        analytique={"704": "770401"}, centre_vers_dossier={"770401": "704"},
+        sources=[], sources_paie=sources)
+    _, centres_inconnus, _ = generer_ecritures_paie(cfg.sources_paie, cfg)
+    return centres_inconnus
+
+
+def test_centre_paie_non_route_signale_avec_son_fichier(tmp_path):
+    inconnus = _generer_paie_centres(tmp_path, [
+        ("EDU PRIME 310526.xlsx", [("770401", 100.0), ("999999", 50.0)])])
+    assert inconnus == [("999999", "EDU PRIME 310526.xlsx")]
+
+
+def test_deux_fichiers_paie_centres_non_routes_distincts(tmp_path):
+    inconnus = _generer_paie_centres(tmp_path, [
+        ("A.xlsx", [("999998", 10.0)]),
+        ("B.xlsx", [("999999", 20.0)])])
+    assert inconnus == [("999998", "A.xlsx"), ("999999", "B.xlsx")]
+
+
+def test_tous_centres_paie_routes_aucun_signalement(tmp_path):
+    inconnus = _generer_paie_centres(tmp_path, [("A.xlsx", [("770401", 100.0)])])
+    assert inconnus == []

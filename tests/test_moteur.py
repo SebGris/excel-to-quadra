@@ -48,7 +48,7 @@ class TestEcritureNominale:
         lignes, sans_centre = _emettre(100.0, centre=None)
         assert sum(1 for l in lignes if l.startswith("M")) == 2   # écritures produites
         assert not any(l.startswith("I") for l in lignes)         # pas de ligne I
-        assert sans_centre == [("704", "Lib")]                    # absence signalée
+        assert sans_centre == [("704", "Lib", None)]              # (dossier, libellé, fichier)
 
 
 class TestMontantsNegatifs:

@@ -44,16 +44,16 @@ def main(argv=None) -> int:
 
     if sans_centre:
         print("\n  Centre analytique manquant (lignes I non générées, à compléter) :")
-        for dossier, libelle in sorted(set(sans_centre)):
-            print(f"   - dossier {dossier} : {libelle}")
+        for dossier, libelle, fichier in sorted(set(sans_centre)):
+            print(f"   - dossier {dossier} : {libelle} (fichier : {fichier})")
     if centres_invalides:
         print("\n  Centres analytiques inconnus (à vérifier — écritures produites) :")
         for centre, dossier, libelle, fichier in sorted(set(centres_invalides)):
             print(f"   - centre {centre} (dossier {dossier}) : {libelle} — {fichier}")
     if centres_inconnus:
         print("\n  Centres de coût non rattachés à un dossier (écritures non générées) :")
-        for centre in centres_inconnus:
-            print("   -", centre)
+        for centre, fichier in centres_inconnus:
+            print(f"   - {centre} (fichier : {fichier})")
     if attente_simple or attente_paie:
         print("\n  Sources en attente de comptes (non générées) :")
         for lib in attente_simple + list(attente_paie):

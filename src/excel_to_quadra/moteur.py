@@ -105,7 +105,7 @@ def ajouter_ecriture_pair(par_dossier: ParDossier, dossier: str, journal: str,
             par_dossier[dossier].append(formater_ligne_i(centre, montant))
             _verifier(centre)
         elif sans_centre is not None:
-            sans_centre.append((dossier, libelle))
+            sans_centre.append((dossier, libelle, fichier))   # fichier pour la traçabilité
 
 
 def generer_ecritures(sources: List[Source], cfg: Configuration,
@@ -113,8 +113,8 @@ def generer_ecritures(sources: List[Source], cfg: Configuration,
                       centres_inconnus: Optional[list] = None) -> Tuple[ParDossier, list]:
     """Traite les sources « une ligne = un établissement ».
 
-    Renvoie (par_dossier, sans_centre) où sans_centre liste les couples
-    (dossier, libellé) dont la ligne analytique n'a pas pu être générée.
+    Renvoie (par_dossier, sans_centre) où sans_centre liste les triplets
+    (dossier, libellé, fichier) dont la ligne analytique n'a pas pu être générée.
 
     Si `centres_inconnus` (liste) est fourni, les centres produits absents de
     `cfg.centres_connus()` y sont mémorisés (avertissement, sans bloquer).
@@ -191,7 +191,8 @@ def generer_ecritures_paie(sources: List[SourcePaie], cfg: Configuration,
 
     Les montants sont agrégés par centre de coût, le dossier est retrouvé via
     la table inverse centre -> dossier, et le centre de coût sert directement
-    de centre analytique. Renvoie (par_dossier, centres_inconnus, en_attente).
+    de centre analytique. Renvoie (par_dossier, centres_inconnus, en_attente),
+    où centres_inconnus liste des couples (centre, fichier) pour la traçabilité.
     """
     par_dossier: ParDossier = defaultdict(list)
     centres_inconnus: list = []
@@ -225,7 +226,7 @@ def generer_ecritures_paie(sources: List[SourcePaie], cfg: Configuration,
         for centre in sorted(cumul):
             dossier = cfg.centre_vers_dossier.get(centre)
             if dossier is None:
-                centres_inconnus.append(centre)
+                centres_inconnus.append((centre, src.fichier))   # couple pour la traçabilité
                 continue
             dossier = cfg.alias_dossiers.get(dossier, dossier)   # alias de dossier
             for comp in src.composantes:

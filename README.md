@@ -69,6 +69,10 @@ totaux débit/crédit, puis les éventuels éléments à compléter (centres
 analytiques manquants, centres de coût inconnus, sources en attente de
 comptes). Le code de retour est non nul si un déséquilibre est détecté.
 
+Pour faciliter la correction, les signalements « centre de coût non rattaché à
+un dossier » et « centre analytique manquant » précisent le **fichier source**
+concerné.
+
 Une section **« Centres analytiques inconnus (à vérifier) »** liste les centres
 produits sur une ligne `I` mais absents de l'ensemble des centres connus (union
 de la table `analytique`, des `centres_supplementaires` et des `ventilation`).
@@ -176,7 +180,7 @@ excel-to-quadra/
 ## Tests
 
 ```bash
-pytest          # 88 tests
+pytest          # 91 tests
 pytest -v       # détail
 ```
 
