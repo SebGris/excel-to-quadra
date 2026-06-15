@@ -82,6 +82,20 @@ class Configuration:
     sources_paie: List[SourcePaie]
     alias_dossiers: Dict[str, str] = field(default_factory=dict)  # dossier lu -> cible
 
+    def centres_connus(self) -> set:
+        """Ensemble des centres analytiques valides.
+
+        Union de (a) la table analytique et (b) les centres supplémentaires
+        — tous deux présents comme clés de `centre_vers_dossier` — et (c) de
+        tous les centres cités dans les `ventilation` des sources.
+        """
+        connus = set(self.centre_vers_dossier)            # (a) + (b)
+        for src in self.sources:
+            for liste in src.ventilation.values():        # (c)
+                for entree in liste:
+                    connus.add(entree["centre"])
+        return connus
+
 
 def _normaliser_ventilation(brut) -> Dict[str, List[dict]]:
     """Normalise une table de ventilation : dossier -> [{centre, pourcent}, ...]."""

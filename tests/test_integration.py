@@ -314,3 +314,67 @@ def test_filtre_date_applique_avant_agregation(tmp_path):
         col_date="E", date_min="20260101", agreger=True)
     debit = next(l for l in pd["704"] if l.startswith("M") and l[41] == "D")
     assert int(debit[42:55]) == 100000                 # cumul = 1000 €, pas 1500
+
+
+def _generer_pour_centres(tmp_path, lignes, *, analytique, centres_supp=None,
+                          remap=None, ventilation=None):
+    """Construit un classeur + une config et renvoie (par_dossier, centres_inconnus)."""
+    entree = tmp_path / "entree"
+    sortie = tmp_path / "sortie"
+    entree.mkdir()
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "CRE"
+    for i, (code, montant) in enumerate(lignes, start=2):
+        ws.cell(i, 1, code)
+        ws.cell(i, 3, montant)
+    wb.save(entree / "centres.xlsx")
+    centre_vers_dossier = {c: d for d, c in analytique.items()}
+    centre_vers_dossier.update(centres_supp or {})
+    cfg = Configuration(
+        dossier_entree=str(entree), dossier_sortie=str(sortie),
+        analytique=analytique, centre_vers_dossier=centre_vers_dossier,
+        sources_paie=[], sources=[Source(
+            fichier="centres.xlsx", feuille="CRE", ligne_debut=2,
+            col_dossier="A", col_montant="C",
+            compte_credit="40810000", compte_debit="62280000",
+            libelle="CENTRE TEST", journal="OS", date_ecriture="310526",
+            remap=remap or {}, ventilation=ventilation or {})])
+    centres_inconnus = []
+    par_dossier, _ = generer_ecritures(cfg.sources, cfg, centres_inconnus=centres_inconnus)
+    return par_dossier, centres_inconnus
+
+
+def test_centre_dans_analytique_accepte_sans_signalement(tmp_path):
+    par, sig = _generer_pour_centres(tmp_path, [("790", 100.0)],
+                                     analytique={"790": "179101"})
+    assert "790" in par and sig == []
+
+
+def test_centre_dans_centres_supplementaires_accepte(tmp_path):
+    # le code lu 179102 (remap -> dossier 790) sert de centre ; il est connu
+    par, sig = _generer_pour_centres(
+        tmp_path, [("179102", 100.0)],
+        analytique={"790": "179101"}, centres_supp={"179102": "790"},
+        remap={"179102": "790"})
+    assert sig == []
+
+
+def test_centre_dans_ventilation_accepte(tmp_path):
+    par, sig = _generer_pour_centres(
+        tmp_path, [("790", 100.0)], analytique={"790": "179101"},
+        ventilation={"790": [{"centre": "179103", "pourcent": 100.0}]})
+    assert sig == []
+
+
+def test_centre_inconnu_signale_sans_bloquer(tmp_path):
+    # 179104 n'est ni dans analytique, ni supplémentaire, ni ventilé -> signalé
+    par, sig = _generer_pour_centres(
+        tmp_path, [("179104", 100.0)],
+        analytique={"790": "179101"}, remap={"179104": "790"})
+    assert "790" in par                                # écriture bien produite
+    assert any(l.startswith("I") for l in par["790"])  # ligne I produite quand même
+    assert len(sig) == 1
+    centre, dossier, libelle, fichier = sig[0]
+    assert centre == "179104" and dossier == "790"
+    assert libelle == "CENTRE TEST" and fichier == "centres.xlsx"

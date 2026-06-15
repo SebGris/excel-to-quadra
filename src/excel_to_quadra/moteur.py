@@ -56,13 +56,24 @@ def ajouter_ecriture_pair(par_dossier: ParDossier, dossier: str, journal: str,
                           centre: Optional[str],
                           sans_centre: Optional[list],
                           extourne: bool = False, facteur: float = 1.0,
-                          ventilation: Optional[List[dict]] = None) -> None:
+                          ventilation: Optional[List[dict]] = None,
+                          centres_connus: Optional[set] = None,
+                          centres_inconnus: Optional[list] = None,
+                          fichier: Optional[str] = None) -> None:
     """Ajoute une écriture équilibrée (M crédit + M débit) et sa/ses ligne(s) I.
 
     Sans ventilation : une ligne I à 100 % vers `centre`. Avec ventilation (liste
     de {centre, pourcent}) : une ligne I par centre, la dernière recevant le solde
     pour que la somme des lignes I égale exactement la ligne M.
+
+    Si `centres_connus` est fourni, chaque centre produit absent de cet ensemble
+    est mémorisé dans `centres_inconnus` (avertissement, sans bloquer l'écriture).
     """
+    def _verifier(centre_produit):
+        if (centres_connus is not None and centres_inconnus is not None
+                and centre_produit not in centres_connus):
+            centres_inconnus.append((centre_produit, dossier, libelle, fichier))
+
     montant = round(montant * facteur, 2)      # prorata avant calcul du sens
     inverser = extourne ^ (montant < 0)        # extourne et négatif se cumulent
     montant = abs(montant)
@@ -89,21 +100,28 @@ def ajouter_ecriture_pair(par_dossier: ParDossier, dossier: str, journal: str,
                 else:
                     part = reste               # le solde garantit somme(I) == M
                 par_dossier[dossier].append(formater_ligne_i(v["centre"], part, v["pourcent"]))
+                _verifier(v["centre"])
         elif centre:
             par_dossier[dossier].append(formater_ligne_i(centre, montant))
+            _verifier(centre)
         elif sans_centre is not None:
             sans_centre.append((dossier, libelle))
 
 
 def generer_ecritures(sources: List[Source], cfg: Configuration,
-                      extourne: bool = False) -> Tuple[ParDossier, list]:
+                      extourne: bool = False,
+                      centres_inconnus: Optional[list] = None) -> Tuple[ParDossier, list]:
     """Traite les sources « une ligne = un établissement ».
 
     Renvoie (par_dossier, sans_centre) où sans_centre liste les couples
     (dossier, libellé) dont la ligne analytique n'a pas pu être générée.
+
+    Si `centres_inconnus` (liste) est fourni, les centres produits absents de
+    `cfg.centres_connus()` y sont mémorisés (avertissement, sans bloquer).
     """
     par_dossier: ParDossier = defaultdict(list)
     sans_centre: list = []
+    connus = cfg.centres_connus() if centres_inconnus is not None else None
     cache_wb = {}
 
     for src in sources:
@@ -152,14 +170,18 @@ def generer_ecritures(sources: List[Source], cfg: Configuration,
                 ajouter_ecriture_pair(par_dossier, dossier, src.journal, date, src.libelle,
                                       src.compte_credit, src.compte_debit, montant,
                                       centre, sans_centre, extourne, facteur=src.facteur,
-                                      ventilation=src.ventilation.get(dossier))
+                                      ventilation=src.ventilation.get(dossier),
+                                      centres_connus=connus, centres_inconnus=centres_inconnus,
+                                      fichier=src.fichier)
 
         for dossier, centre in sorted(cumul, key=lambda k: (k[0], k[1] or "")):
             ajouter_ecriture_pair(par_dossier, dossier, src.journal, date, src.libelle,
                                   src.compte_credit, src.compte_debit,
                                   round(cumul[(dossier, centre)], 2),
                                   centre, sans_centre, extourne, facteur=src.facteur,
-                                  ventilation=src.ventilation.get(dossier))
+                                  ventilation=src.ventilation.get(dossier),
+                                  centres_connus=connus, centres_inconnus=centres_inconnus,
+                                  fichier=src.fichier)
     return par_dossier, sans_centre
 
 

@@ -106,3 +106,36 @@ def test_alias_dossiers_absent_par_defaut(tmp_path):
     cfg = charger_configuration(str(chemin))
     assert cfg.alias_dossiers == {}                    # défaut : dict vide
     assert cfg.sources[0].ventilation == {}
+
+
+YAML_CENTRES = """
+dossier_entree: "/entree"
+dossier_sortie: "/sortie"
+analytique:
+  "790": "179101"
+centres_supplementaires:
+  "179102": "790"
+sources:
+  - fichier: "x.xlsx"
+    feuille: "F"
+    ligne_debut: 2
+    col_dossier: "A"
+    col_montant: "C"
+    compte_credit: "40810000"
+    compte_debit: "62280000"
+    libelle: "X"
+    journal: "OS"
+    date_ecriture: "310526"
+    ventilation:
+      "790":
+        - {centre: "179103", pourcent: 100.0}
+sources_paie: []
+"""
+
+
+def test_centres_connus_union_des_trois_sources(tmp_path):
+    chemin = tmp_path / "cfg.yaml"
+    chemin.write_text(YAML_CENTRES, encoding="utf-8")
+    cfg = charger_configuration(str(chemin))
+    # (a) analytique, (b) centres_supplementaires, (c) centres des ventilations
+    assert cfg.centres_connus() == {"179101", "179102", "179103"}

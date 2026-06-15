@@ -69,6 +69,13 @@ totaux débit/crédit, puis les éventuels éléments à compléter (centres
 analytiques manquants, centres de coût inconnus, sources en attente de
 comptes). Le code de retour est non nul si un déséquilibre est détecté.
 
+Une section **« Centres analytiques inconnus (à vérifier) »** liste les centres
+produits sur une ligne `I` mais absents de l'ensemble des centres connus (union
+de la table `analytique`, des `centres_supplementaires` et des `ventilation`).
+C'est un **avertissement** : l'écriture est tout de même produite et le code de
+retour reste `0` (à la différence du centre *manquant*, qui concerne l'absence
+de centre, pas un centre invalide).
+
 Au démarrage, le dossier de sortie est **purgé des fichiers générés d'un run
 précédent** (motif `*_ecriture_Quadra*.txt` uniquement ; tout autre fichier est
 préservé), afin qu'un dossier devenu orphelin — supprimé, renommé ou aliasé — ne
@@ -169,7 +176,7 @@ excel-to-quadra/
 ## Tests
 
 ```bash
-pytest          # 83 tests
+pytest          # 88 tests
 pytest -v       # détail
 ```
 

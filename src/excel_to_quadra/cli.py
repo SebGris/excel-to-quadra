@@ -30,7 +30,9 @@ def main(argv=None) -> int:
     nettoyer_sortie(cfg.dossier_sortie)
 
     print("Écritures d'arrêté :")
-    par_dossier, sans_centre = generer_ecritures(pretes, cfg)
+    centres_invalides: list = []
+    par_dossier, sans_centre = generer_ecritures(pretes, cfg,
+                                                 centres_inconnus=centres_invalides)
     par_paie, centres_inconnus, attente_paie = generer_ecritures_paie(cfg.sources_paie, cfg)
     for dossier, lignes in par_paie.items():
         par_dossier[dossier].extend(lignes)
@@ -44,6 +46,10 @@ def main(argv=None) -> int:
         print("\n  Centre analytique manquant (lignes I non générées, à compléter) :")
         for dossier, libelle in sorted(set(sans_centre)):
             print(f"   - dossier {dossier} : {libelle}")
+    if centres_invalides:
+        print("\n  Centres analytiques inconnus (à vérifier — écritures produites) :")
+        for centre, dossier, libelle, fichier in sorted(set(centres_invalides)):
+            print(f"   - centre {centre} (dossier {dossier}) : {libelle} — {fichier}")
     if centres_inconnus:
         print("\n  Centres de coût non rattachés à un dossier (écritures non générées) :")
         for centre in centres_inconnus:
