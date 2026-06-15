@@ -14,6 +14,9 @@ config/*.local.yml
 # Mémoire Claude contenant des données internes (non versionnée)
 CLAUDE.local.md
 
+# Mode opératoire interne (non versionné)
+Comment_faire_une_situation.md
+
 # Données comptables : jamais dans le dépôt
 *.xlsx
 *.xlsb
