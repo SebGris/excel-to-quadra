@@ -19,7 +19,9 @@ Comment_faire_une_situation.md
 
 # Données comptables : jamais dans le dépôt
 *.xlsx
+*.xlsm
 *.xlsb
+*.csv
 *.txt
 !requirements*.txt
 !tests/**
