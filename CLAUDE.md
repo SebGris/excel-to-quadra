@@ -90,11 +90,16 @@ d'équilibre → écriture d'un fichier texte par dossier**.
 ## Contrôles qualité — erreurs silencieuses
 
 Un traitement comptable doit attraper les erreurs que l'équilibre débit/crédit
-ne révèle pas. Tout contrôle ci-dessous est **non bloquant** (avertissement dans
-le rapport, code retour inchangé) sauf le déséquilibre, **seul cas bloquant**
-(code retour 1). Chaque signalement précise le **fichier source** concerné.
+ne révèle pas. Il y a **deux cas bloquants** — le **déséquilibre débit/crédit**
+(code retour 1) et l'**en-tête de fichier invalide** (`EnteteInvalide`, code
+retour 2, quand `entete_attendu` ne correspond pas) ; les autres contrôles
+restent **non bloquants** (avertissement dans le rapport, code retour 0). Chaque
+signalement précise le **fichier source** concerné.
 
 - **Déséquilibre débit/crédit** (bloquant) — par dossier et global.
+- **Structure d'en-tête** (`entete_attendu`, bloquant) — vérifie *avant*
+  traitement que les colonnes clés d'un fichier portent les libellés attendus ;
+  un fichier mal structuré produirait sinon des écritures fausses en silence.
 - **Centre analytique manquant** — une écriture de classe 6/7 sans centre.
 - **Centre de coût non rattaché** — un centre d'un fichier source ne pointe vers
   aucun dossier (écriture non générée).
@@ -110,6 +115,10 @@ le rapport, code retour inchangé) sauf le déséquilibre, **seul cas bloquant**
 > Tout traitement qui agrège des données financières doit donc embarquer un
 > contrôle de doublons dédié, distinct du contrôle d'équilibre. Ne jamais
 > supposer que l'équilibre garantit l'absence de double comptage.
+
+Enfin, **hors « contrôles » au sens strict** mais dans le même esprit qualité :
+la **comparaison à une référence** (rapport diff CSV) rend compte des écarts
+d'écritures entre deux générations (NOUVELLE / SUPPRIMEE / MONTANT_MODIFIE).
 
 ## Données et configuration
 
