@@ -62,6 +62,22 @@ class TestLectureEtDossiers:
         ecritures = lire_ecritures_m(str(cur))
         assert list(ecritures)[0][0] == "17641"       # dossier = préfixe du nom
 
+    def test_numero_piece_hors_de_la_cle(self, tmp_path):
+        # Deux générations identiques SAUF le n° de pièce (position 100, incrémental)
+        # -> aucune différence : le n° de pièce ne fait pas partie de la clé.
+        ref = tmp_path / "ref"
+        cur = tmp_path / "cur"
+        ref.mkdir()
+        cur.mkdir()
+        m_ref = formater_ligne_m("62280000", "OS", "310526", "Charge", "D", 100.0,
+                                 numero_piece="IMPORT01")
+        m_cur = formater_ligne_m("62280000", "OS", "310526", "Charge", "D", 100.0,
+                                 numero_piece="IMPORT02")
+        assert m_ref != m_cur                         # les lignes diffèrent (pos 100)
+        _ecrire_fichier(ref, "704", [m_ref])
+        _ecrire_fichier(cur, "704", [m_cur])
+        assert comparer(lire_ecritures_m(str(ref)), lire_ecritures_m(str(cur))) == []
+
 
 class TestComparerDossiers:
     def test_reference_vide_pas_de_diff_ni_csv(self, tmp_path):

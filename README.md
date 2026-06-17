@@ -245,7 +245,9 @@ Workflow :
 3. Lire `diff_situation_AAAAMMJJ.csv` dans le dossier de sortie.
 
 La comparaison se fait au niveau de chaque **écriture M**, identifiée par
-(dossier, compte, sens, libellé) ; la valeur comparée est le montant. Chaque
+(dossier, compte, sens, libellé) ; la valeur comparée est le montant. Le **n° de
+pièce** (position 100, incrémental) **ne fait pas partie de la clé** — sinon
+toutes les écritures sembleraient « modifiées » d'une génération à l'autre. Chaque
 différence est classée **NOUVELLE**, **SUPPRIMEE** ou **MONTANT_MODIFIE**
 (avec `montant_avant`, `montant_apres`, `ecart`) ; les écritures identiques ne
 figurent pas dans le rapport. Le CSV (`;`, UTF-8 BOM, montants en euros) se
@@ -283,7 +285,7 @@ excel-to-quadra/
 ## Tests
 
 ```bash
-pytest          # 130 tests
+pytest          # 131 tests
 pytest -v       # détail
 ```
 
