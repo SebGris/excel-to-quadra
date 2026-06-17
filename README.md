@@ -85,9 +85,11 @@ sources de paie, les couples (matricule, centre de coût) présents plus d'une
 fois — dans un même fichier ou dans plusieurs — avec les fichiers concernés. Un
 tel doublon double la provision d'un salarié **sans rompre l'équilibre**, donc
 sans être détecté par le contrôle débit/crédit. Le matricule est lu dans la
-colonne `col_matricule` de la source de paie (défaut `G`). Un même matricule sur
-des centres *différents* (salarié réparti) n'est pas un doublon. C'est un
-**avertissement** non bloquant (code de retour inchangé).
+colonne `col_matricule` de la source de paie (défaut `G`, **surchargeable par
+source** — ex. `H` pour les fichiers STC dont la colonne `G` est une catégorie ;
+`col_matricule: null` **désactive** la détection pour un fichier sans matricule
+individuel). Un même matricule sur des centres *différents* (salarié réparti)
+n'est pas un doublon. C'est un **avertissement** non bloquant (code inchangé).
 
 Au démarrage, le dossier de sortie est **purgé des fichiers générés d'un run
 précédent** (motif `*_ecriture_Quadra*.txt` uniquement ; tout autre fichier est
@@ -126,6 +128,28 @@ une source « une ligne = un établissement » accepte plusieurs options :
   tombe dans la période sont retenues — utile pour un exercice non encore
   clôturé dont l'export mélange plusieurs années. Le filtre s'applique **avant**
   `agreger`, donc les cumuls ne portent que sur la période.
+- **`entete_attendu`** (+ `ligne_entete`) : contrôle de structure. Dictionnaire
+  `colonne → libellé attendu` vérifié **avant** de traiter la source : chaque
+  cellule de la ligne d'en-tête (`ligne_entete`, défaut `ligne_debut - 1`) doit
+  contenir le libellé attendu (comparaison insensible à la casse et aux espaces
+  de début/fin). Tout écart **interrompt** la génération avec une erreur claire
+  (fichier, colonne, attendu, trouvé) : c'est un garde-fou contre un classeur
+  qui ne correspond pas à ce que la config croit lire (colonnes décalées, mauvais
+  onglet…). Absent, aucun contrôle (comportement inchangé).
+
+```yaml
+sources_paie:
+  - fichier: "CRE PRECA 310526.xlsx"
+    feuille: "Feuil1"
+    ligne_debut: 6
+    col_centre: "D"
+    col_matricule: "G"        # ou "H" (STC), ou null pour désactiver la détection
+    entete_attendu:           # vérifié en ligne 5 (ligne_debut - 1)
+      D: "centre de coût"
+      G: "Mat-Id-Es"
+      N: "Montant Prime Précarité"
+    # ... composantes ...
+```
 
 ```yaml
 sources:
@@ -231,7 +255,7 @@ excel-to-quadra/
 ## Tests
 
 ```bash
-pytest          # 114 tests
+pytest          # 120 tests
 pytest -v       # détail
 ```
 

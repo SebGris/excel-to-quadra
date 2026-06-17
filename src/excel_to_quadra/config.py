@@ -41,6 +41,9 @@ class Source:
     date_min: Optional[str] = None
     date_max: Optional[str] = None
     numero_piece: Optional[str] = None    # surcharge le n° de pièce global
+    # contrôle de structure : colonne -> libellé d'en-tête attendu
+    entete_attendu: Dict[str, str] = field(default_factory=dict)
+    ligne_entete: Optional[int] = None    # défaut : ligne_debut - 1
 
     @property
     def complete(self) -> bool:
@@ -72,7 +75,11 @@ class SourcePaie:
     composantes: List[Composante]
     contre_passation: Optional[str] = None
     numero_piece: Optional[str] = None    # surcharge le n° de pièce global
-    col_matricule: str = "G"              # colonne du matricule (détection de doublons)
+    # colonne du matricule (détection de doublons) ; None désactive la détection
+    col_matricule: Optional[str] = "G"
+    # contrôle de structure : colonne -> libellé d'en-tête attendu
+    entete_attendu: Dict[str, str] = field(default_factory=dict)
+    ligne_entete: Optional[int] = None    # défaut : ligne_debut - 1
 
 
 @dataclass
@@ -130,12 +137,17 @@ def charger_configuration(chemin: str) -> Configuration:
 
     alias_dossiers = {str(k): str(v) for k, v in (brut.get("alias_dossiers") or {}).items()}
 
+    def _entete(s):
+        return {str(k): str(v) for k, v in (s.get("entete_attendu") or {}).items()}
+
     sources = [Source(**{**s,
                          "remap": {str(k): str(v) for k, v in (s.get("remap") or {}).items()},
-                         "ventilation": _normaliser_ventilation(s.get("ventilation"))})
+                         "ventilation": _normaliser_ventilation(s.get("ventilation")),
+                         "entete_attendu": _entete(s)})
                for s in (brut.get("sources") or [])]
     sources_paie = [
-        SourcePaie(**{**s, "composantes": [Composante(**c) for c in s["composantes"]]})
+        SourcePaie(**{**s, "composantes": [Composante(**c) for c in s["composantes"]],
+                      "entete_attendu": _entete(s)})
         for s in (brut.get("sources_paie") or [])
     ]
     return Configuration(

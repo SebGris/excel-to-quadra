@@ -12,8 +12,9 @@ import sys
 from collections import Counter
 
 from .config import charger_configuration
-from .moteur import (ecrire_fichiers, formater_numero_piece, generer_ecritures,
-                     generer_ecritures_paie, nettoyer_sortie, prochain_compteur)
+from .moteur import (EnteteInvalide, ecrire_fichiers, formater_numero_piece,
+                     generer_ecritures, generer_ecritures_paie, nettoyer_sortie,
+                     prochain_compteur)
 
 
 def main(argv=None) -> int:
@@ -45,10 +46,14 @@ def main(argv=None) -> int:
     print("Écritures d'arrêté :")
     centres_invalides: list = []
     doublons_paie: list = []
-    par_dossier, sans_centre = generer_ecritures(pretes, cfg,
-                                                 centres_inconnus=centres_invalides)
-    par_paie, centres_inconnus, attente_paie = generer_ecritures_paie(
-        cfg.sources_paie, cfg, doublons=doublons_paie)
+    try:
+        par_dossier, sans_centre = generer_ecritures(pretes, cfg,
+                                                     centres_inconnus=centres_invalides)
+        par_paie, centres_inconnus, attente_paie = generer_ecritures_paie(
+            cfg.sources_paie, cfg, doublons=doublons_paie)
+    except EnteteInvalide as e:
+        print(f"\n  !! ERREUR DE STRUCTURE — génération interrompue :\n     {e}")
+        return 2
     for dossier, lignes in par_paie.items():
         par_dossier[dossier].extend(lignes)
 

@@ -32,8 +32,28 @@ from .normalisation import lire_montant, normaliser_code
 ParDossier = Dict[str, List[str]]
 
 
+class EnteteInvalide(Exception):
+    """Levée quand l'en-tête réel d'un classeur ne correspond pas à `entete_attendu`."""
+
+
 def _est_charge_ou_produit(compte: str) -> bool:
     return str(compte)[:1] in ("6", "7")
+
+
+def _verifier_entete(ws, entete_attendu: Dict[str, str], ligne_entete: int,
+                     fichier: str) -> None:
+    """Vérifie chaque libellé d'en-tête déclaré ; lève EnteteInvalide en cas d'écart.
+
+    Comparaison souple : insensible à la casse et aux espaces de début/fin.
+    """
+    for colonne, attendu in entete_attendu.items():
+        trouve = ws.cell(ligne_entete, column_index_from_string(colonne)).value
+        trouve_txt = "" if trouve is None else str(trouve)
+        if trouve_txt.strip().lower() != str(attendu).strip().lower():
+            raise EnteteInvalide(
+                f"En-tête inattendu dans « {fichier} », colonne {colonne} "
+                f"(ligne {ligne_entete}) : attendu « {attendu} », trouvé « {trouve_txt} ». "
+                f"Le fichier ne correspond pas à ce que la configuration croit lire.")
 
 
 def _normaliser_date(valeur) -> Optional[str]:
@@ -134,6 +154,10 @@ def generer_ecritures(sources: List[Source], cfg: Configuration,
             cache_wb[chemin] = load_workbook(chemin, data_only=True)
         ws = cache_wb[chemin][src.feuille]
 
+        if src.entete_attendu:                       # contrôle de structure (bloquant)
+            _verifier_entete(ws, src.entete_attendu,
+                             src.ligne_entete or (src.ligne_debut - 1), src.fichier)
+
         c_dossier = column_index_from_string(src.col_dossier)
         c_montant = column_index_from_string(src.col_montant)
         date = src.contre_passation if extourne else src.date_ecriture
@@ -216,8 +240,13 @@ def generer_ecritures_paie(sources: List[SourcePaie], cfg: Configuration,
         if chemin not in cache_wb:
             cache_wb[chemin] = load_workbook(chemin, data_only=True)
         ws = cache_wb[chemin][src.feuille]
+
+        if src.entete_attendu:                       # contrôle de structure (bloquant)
+            _verifier_entete(ws, src.entete_attendu,
+                             src.ligne_entete or (src.ligne_debut - 1), src.fichier)
+
         c_centre = column_index_from_string(src.col_centre)
-        c_matricule = column_index_from_string(src.col_matricule)
+        c_matricule = column_index_from_string(src.col_matricule) if src.col_matricule else None
         date = src.contre_passation if extourne else src.date_ecriture
         numero_piece = src.numero_piece or cfg.numero_piece   # surcharge source > globale
 
@@ -231,7 +260,7 @@ def generer_ecritures_paie(sources: List[SourcePaie], cfg: Configuration,
             if not centre.isdigit():
                 continue
             # Détection de doublons : on note (matricule, centre) -> fichier.
-            if doublons is not None:
+            if doublons is not None and c_matricule is not None:
                 matricule = ws.cell(r, c_matricule).value
                 if matricule is not None and str(matricule).strip():
                     suivi_matricules[(str(matricule).strip(), centre)].append(src.fichier)

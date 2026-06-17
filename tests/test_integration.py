@@ -8,9 +8,9 @@ from openpyxl import Workbook
 
 from excel_to_quadra.cli import main as cli_main
 from excel_to_quadra.config import (Composante, Configuration, Source, SourcePaie)
-from excel_to_quadra.moteur import (controler_equilibre, ecrire_fichiers,
-                                     generer_ecritures, generer_ecritures_paie,
-                                     nettoyer_sortie)
+from excel_to_quadra.moteur import (EnteteInvalide, controler_equilibre,
+                                     ecrire_fichiers, generer_ecritures,
+                                     generer_ecritures_paie, nettoyer_sortie)
 
 CRLF = b"\r\n"
 
@@ -581,3 +581,107 @@ def test_matricule_absent_ignore(tmp_path):
         ("paieA.xlsx", [(None, "770401", 100.0)]),
         ("paieB.xlsx", [(None, "770401", 100.0)])])
     assert d == []
+
+
+def _generer_paie_cols(tmp_path, fichiers, col_matricule="G"):
+    """fichiers : liste de (nom, [(g, h, centre, montant), ...]) — G, H, D, N."""
+    entree = tmp_path / "entree"
+    sortie = tmp_path / "sortie"
+    if not entree.exists():
+        entree.mkdir()
+    sources = []
+    for nom, lignes in fichiers:
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Feuil1"
+        for i, (g, h, centre, montant) in enumerate(lignes, start=2):
+            if g is not None:
+                ws.cell(i, 7, g)                       # G : catégorie
+            if h is not None:
+                ws.cell(i, 8, h)                       # H : matricule (STC)
+            ws.cell(i, 4, centre)                      # D : centre
+            ws.cell(i, 14, montant)                    # N : composante
+        wb.save(entree / nom)
+        sources.append(SourcePaie(
+            fichier=nom, feuille="Feuil1", ligne_debut=2, col_centre="D",
+            journal="OS", date_ecriture="310526", contre_passation=None,
+            col_matricule=col_matricule,
+            composantes=[Composante(col="N", compte_debit="64133820",
+                                    compte_credit="42822000", libelle="PRIME")]))
+    cfg = Configuration(
+        dossier_entree=str(entree), dossier_sortie=str(sortie),
+        analytique={"704": "770401"}, centre_vers_dossier={"770401": "704"},
+        sources=[], sources_paie=sources)
+    doublons = []
+    generer_ecritures_paie(cfg.sources_paie, cfg, doublons=doublons)
+    return doublons
+
+
+def test_doublon_matricule_en_colonne_h(tmp_path):
+    # G = catégorie identique (à ne pas lire), H = vrai matricule
+    d = _generer_paie_cols(tmp_path, [
+        ("A.xlsx", [("Medical", "M001", "770401", 100.0)]),
+        ("B.xlsx", [("Medical", "M001", "770401", 100.0)])], col_matricule="H")
+    assert d == [("M001", "770401", ("A.xlsx", "B.xlsx"))]
+
+
+def test_detection_desactivee_quand_col_matricule_none(tmp_path):
+    d = _generer_paie_cols(tmp_path, [
+        ("A.xlsx", [("Medical", "M001", "770401", 100.0)]),
+        ("B.xlsx", [("Medical", "M001", "770401", 100.0)])], col_matricule=None)
+    assert d == []                                     # détection désactivée
+
+
+def _generer_avec_entete(tmp_path, entete_cellules, entete_attendu, ligne_entete=None):
+    """Écrit un en-tête en ligne 1 et une donnée en ligne 2 (ligne_debut=2)."""
+    entree = tmp_path / "entree"
+    sortie = tmp_path / "sortie"
+    entree.mkdir()
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "CRE"
+    for col, val in entete_cellules.items():
+        ws[f"{col}1"] = val
+    ws["A2"] = "704"
+    ws["C2"] = 100.0
+    wb.save(entree / "p.xlsx")
+    src = Source(
+        fichier="p.xlsx", feuille="CRE", ligne_debut=2, col_dossier="A",
+        col_montant="C", compte_credit="40810000", compte_debit="62280000",
+        libelle="X", journal="OS", date_ecriture="310526",
+        entete_attendu=entete_attendu, ligne_entete=ligne_entete)
+    cfg = Configuration(
+        dossier_entree=str(entree), dossier_sortie=str(sortie),
+        analytique={"704": "770401"}, centre_vers_dossier={}, sources_paie=[],
+        sources=[src])
+    return generer_ecritures(cfg.sources, cfg)
+
+
+def test_entete_conforme_traitement_normal(tmp_path):
+    par, _ = _generer_avec_entete(
+        tmp_path, {"A": "Dossier", "C": "Montant"},
+        entete_attendu={"A": "Dossier", "C": "Montant"})
+    assert "704" in par
+
+
+def test_entete_non_conforme_erreur_bloquante(tmp_path):
+    with pytest.raises(EnteteInvalide) as exc:
+        _generer_avec_entete(
+            tmp_path, {"A": "AUTRE CHOSE", "C": "Montant"},
+            entete_attendu={"A": "Dossier", "C": "Montant"})
+    msg = str(exc.value)
+    assert "p.xlsx" in msg and "A" in msg          # fichier + colonne
+    assert "Dossier" in msg and "AUTRE CHOSE" in msg   # attendu + trouvé
+
+
+def test_entete_comparaison_insensible_casse_et_espaces(tmp_path):
+    par, _ = _generer_avec_entete(
+        tmp_path, {"A": "  DOSSIER ", "C": "montant"},
+        entete_attendu={"A": "Dossier", "C": "Montant"})
+    assert "704" in par                            # toléré
+
+
+def test_sans_entete_attendu_comportement_inchange(tmp_path):
+    par, _ = _generer_avec_entete(
+        tmp_path, {"A": "peu importe"}, entete_attendu={})
+    assert "704" in par
