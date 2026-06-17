@@ -283,7 +283,7 @@ excel-to-quadra/
 ## Tests
 
 ```bash
-pytest          # 129 tests
+pytest          # 130 tests
 pytest -v       # détail
 ```
 

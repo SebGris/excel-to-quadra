@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """Tests d'intégration : classeurs Excel générés à la volée, chaîne complète."""
 
+import shutil
 from datetime import datetime
 
 import pytest
@@ -685,3 +686,45 @@ def test_sans_entete_attendu_comportement_inchange(tmp_path):
     par, _ = _generer_avec_entete(
         tmp_path, {"A": "peu importe"}, entete_attendu={})
     assert "704" in par
+
+
+def _ecrire_cfg_reference(tmp_path, entree, sortie, ref, montant, avec_reference):
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "CRE"
+    ws["A2"] = "704"
+    ws["C2"] = montant
+    wb.save(entree / "p.xlsx")
+    lignes = [f'dossier_entree: "{entree.as_posix()}"',
+              f'dossier_sortie: "{sortie.as_posix()}"']
+    if avec_reference:
+        lignes.append(f'dossier_reference: "{ref.as_posix()}"')
+    lignes += ['analytique:', '  "704": "770401"', 'sources:',
+               '  - fichier: "p.xlsx"', '    feuille: "CRE"', '    ligne_debut: 2',
+               '    col_dossier: "A"', '    col_montant: "C"',
+               '    compte_credit: "40810000"', '    compte_debit: "62280000"',
+               '    libelle: "Charge"', '    journal: "OS"',
+               '    date_ecriture: "310526"', 'sources_paie: []']
+    chemin = tmp_path / "cfg.yaml"
+    chemin.write_text("\n".join(lignes) + "\n", encoding="utf-8")
+    return chemin
+
+
+def test_dossier_reference_du_yaml_sans_option_cli(tmp_path):
+    """Cas Lancer.bat : la clé config dossier_reference suffit (sans --reference)."""
+    entree = tmp_path / "entree"
+    sortie = tmp_path / "sortie"
+    ref = tmp_path / "reference"
+    entree.mkdir()
+    # 1er run sans référence -> on en fait la version de référence
+    cli_main(["--config",
+              str(_ecrire_cfg_reference(tmp_path, entree, sortie, ref, 100.0, False))])
+    shutil.copytree(sortie, ref)
+    # 2e run : dossier_reference dans le YAML, AUCUN argument --reference
+    cli_main(["--config",
+              str(_ecrire_cfg_reference(tmp_path, entree, sortie, ref, 150.0, True))])
+    csvs = list(sortie.glob("diff_situation_*.csv"))
+    assert len(csvs) == 1                              # diff généré via la clé config seule
+    lignes = csvs[0].read_text(encoding="utf-8-sig").splitlines()
+    assert lignes[0].startswith("Type;Dossier")
+    assert any("MONTANT_MODIFIE;704" in l for l in lignes)
