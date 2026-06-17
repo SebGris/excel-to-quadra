@@ -3,7 +3,8 @@
 
 from collections import defaultdict
 
-from excel_to_quadra.moteur import ajouter_ecriture_pair, controler_equilibre
+from excel_to_quadra.moteur import (ajouter_ecriture_pair, controler_equilibre,
+                                     formater_numero_piece, prochain_compteur)
 
 
 def _emettre(montant, extourne=False, centre="770401",
@@ -149,3 +150,39 @@ class TestControlerEquilibre:
         lignes_m = [l for l in lignes if l.startswith("M") and l[41] == "D"]
         d, c = controler_equilibre(lignes_m)
         assert d != c
+
+
+class TestNumeroPieceIncremental:
+    def test_format_compteur_deux_chiffres(self):
+        assert formater_numero_piece("IMPORT", 1) == "IMPORT01"
+        assert formater_numero_piece("IMPORT", 2) == "IMPORT02"
+        assert formater_numero_piece("IMPORT", 99) == "IMPORT99"
+
+    def test_total_tronque_a_8_base_rognee(self):
+        # base trop longue -> rognée (pas le compteur), total = 8 c.
+        assert formater_numero_piece("IMPORTATION", 1) == "IMPORT01"
+        assert len(formater_numero_piece("IMPORTATION", 1)) == 8
+
+    def test_au_dela_de_99_passe_a_3_chiffres(self):
+        # le compteur garde sa précision, la base est rognée pour tenir sur 8
+        assert formater_numero_piece("IMPORT", 100) == "IMPOR100"
+        assert len(formater_numero_piece("IMPORT", 100)) == 8
+
+    def test_compteur_cree_a_1_si_absent(self, tmp_path):
+        chemin = str(tmp_path / "compteur_import.txt")
+        assert prochain_compteur(chemin) == 1
+        assert (tmp_path / "compteur_import.txt").read_text(encoding="utf-8").strip() == "1"
+
+    def test_compteur_incremente_a_chaque_appel(self, tmp_path):
+        chemin = str(tmp_path / "compteur_import.txt")
+        assert [prochain_compteur(chemin) for _ in range(3)] == [1, 2, 3]
+
+    def test_compteur_corrompu_repart_de_1(self, tmp_path):
+        p = tmp_path / "compteur_import.txt"
+        p.write_text("pas un entier", encoding="utf-8")
+        assert prochain_compteur(str(p)) == 1
+
+    def test_compteur_vide_repart_de_1(self, tmp_path):
+        p = tmp_path / "compteur_import.txt"
+        p.write_text("", encoding="utf-8")
+        assert prochain_compteur(str(p)) == 1

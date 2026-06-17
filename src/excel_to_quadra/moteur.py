@@ -260,6 +260,37 @@ def controler_equilibre(lignes: List[str]) -> Tuple[int, int]:
     return debit, credit
 
 
+def formater_numero_piece(base: str, compteur: int) -> str:
+    """Compose un n° de pièce « base + compteur » tenant sur 8 caractères.
+
+    Le compteur est zéro-paddé sur 2 chiffres (3 au-delà de 99, etc.). En cas de
+    dépassement des 8 caractères, c'est la **base** qui est rognée, jamais le
+    compteur (la traçabilité du n° de run prime).
+    """
+    suffixe = str(compteur).zfill(2)
+    base_max = max(0, 8 - len(suffixe))
+    return (str(base)[:base_max] + suffixe)[:8]
+
+
+def prochain_compteur(chemin: str) -> int:
+    """Lit le dernier compteur, l'incrémente, le réécrit et renvoie la valeur du run.
+
+    Fichier absent, vide ou corrompu : on repart de 1 (sans bloquer).
+    """
+    dernier = 0
+    try:
+        dernier = int(open(chemin, encoding="utf-8").read().strip())
+    except (OSError, ValueError):
+        dernier = 0                                  # absent / vide / corrompu
+    courant = max(0, dernier) + 1
+    dossier = os.path.dirname(chemin)
+    if dossier:
+        os.makedirs(dossier, exist_ok=True)
+    with open(chemin, "w", encoding="utf-8") as fh:
+        fh.write(str(courant))
+    return courant
+
+
 def nettoyer_sortie(dossier_sortie: str) -> list:
     """Supprime du dossier de sortie les seuls fichiers `*_ecriture_Quadra*.txt`.
 

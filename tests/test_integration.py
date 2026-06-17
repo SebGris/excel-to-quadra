@@ -6,6 +6,7 @@ from datetime import datetime
 import pytest
 from openpyxl import Workbook
 
+from excel_to_quadra.cli import main as cli_main
 from excel_to_quadra.config import (Composante, Configuration, Source, SourcePaie)
 from excel_to_quadra.moteur import (controler_equilibre, ecrire_fichiers,
                                      generer_ecritures, generer_ecritures_paie,
@@ -461,3 +462,61 @@ def test_numero_piece_globale_quand_source_absente(tmp_path):
     m = _config_numero_piece(tmp_path, numero_piece_global="GLOBAL",
                              numero_piece_source=None)
     assert m[99:107] == "GLOBAL  "
+
+
+def _run_cli_numero_piece(tmp_path, incremental):
+    """Lance cli.main sur une config minimale et renvoie les lignes M produites
+    (passe normale + contre-passation)."""
+    entree = tmp_path / "entree"
+    sortie = tmp_path / "sortie"
+    if not entree.exists():
+        entree.mkdir()
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "CRE"
+    ws.cell(2, 1, "704")
+    ws.cell(2, 3, 100.0)
+    wb.save(entree / "p.xlsx")
+    cfg = (
+        f'dossier_entree: "{entree.as_posix()}"\n'
+        f'dossier_sortie: "{sortie.as_posix()}"\n'
+        'numero_piece: "IMPORT"\n'
+        + ('numero_piece_incremental: true\n' if incremental else '')
+        + 'analytique:\n  "704": "770401"\n'
+        'sources:\n'
+        '  - fichier: "p.xlsx"\n'
+        '    feuille: "CRE"\n'
+        '    ligne_debut: 2\n'
+        '    col_dossier: "A"\n'
+        '    col_montant: "C"\n'
+        '    compte_credit: "40810000"\n'
+        '    compte_debit: "62280000"\n'
+        '    libelle: "X"\n'
+        '    journal: "OS"\n'
+        '    date_ecriture: "310526"\n'
+        '    contre_passation: "010626"\n'
+        'sources_paie: []\n'
+    )
+    chemin = tmp_path / "cfg.yaml"
+    chemin.write_text(cfg, encoding="utf-8")
+    cli_main(["--config", str(chemin)])
+    mlines = []
+    for nom in ("704_ecriture_Quadra.txt", "704_ecriture_Quadra_contrepass.txt"):
+        p = sortie / nom
+        if p.exists():
+            mlines += [l.decode("cp1252")
+                       for l in p.read_bytes().split(b"\r\n") if l[:1] == b"M"]
+    return mlines
+
+
+def test_numero_piece_incremental_deux_runs_successifs(tmp_path):
+    m1 = _run_cli_numero_piece(tmp_path, incremental=True)
+    assert m1 and all(l[99:107] == "IMPORT01" for l in m1)   # tout le run #1
+    assert all(len(l) == 146 for l in m1)
+    m2 = _run_cli_numero_piece(tmp_path, incremental=True)
+    assert m2 and all(l[99:107] == "IMPORT02" for l in m2)   # run #2 incrémenté
+
+
+def test_numero_piece_fixe_sans_option_incremental(tmp_path):
+    m = _run_cli_numero_piece(tmp_path, incremental=False)
+    assert m and all(l[99:107] == "IMPORT  " for l in m)     # fixe, comportement inchangé

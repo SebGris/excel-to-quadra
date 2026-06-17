@@ -174,6 +174,28 @@ sources:
     numero_piece: "IMPORT2" # surcharge pour cette source uniquement
 ```
 
+#### Compteur de génération incrémental
+
+Avec `numero_piece_incremental: true`, un compteur sur 2 chiffres est accolé au
+n° de pièce de base : `IMPORT01`, `IMPORT02`… Le compteur **s'incrémente à
+chaque exécution** du programme, et **toutes les écritures d'un même run**
+(passe normale *et* contre-passation) portent le même numéro — pratique pour
+isoler un import donné dans le journal.
+
+Le dernier compteur utilisé est persisté dans `compteur_import.txt` (dossier de
+sortie) ; absent, vide ou corrompu, on repart de `1`. Ce fichier n'est pas
+touché par la purge des `*_ecriture_Quadra*.txt`.
+
+Format : base + compteur, tronqué à **8 caractères** (donc base de 6 c. max pour
+un compteur 2 chiffres : `IMPORT` → `IMPORT01`). Au-delà de 99 le compteur passe
+à 3 chiffres et c'est la **base** qui est rognée (`IMPORT` → `IMPOR100`), jamais
+le compteur. Sans l'option, le n° de pièce reste fixe (comportement par défaut).
+
+```yaml
+numero_piece: "IMPORT"
+numero_piece_incremental: true   # IMPORT01, IMPORT02, … (un n° par exécution)
+```
+
 ## Structure du projet
 
 ```
@@ -200,7 +222,7 @@ excel-to-quadra/
 ## Tests
 
 ```bash
-pytest          # 99 tests
+pytest          # 110 tests
 pytest -v       # détail
 ```
 

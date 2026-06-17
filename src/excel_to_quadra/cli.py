@@ -7,11 +7,12 @@ Usage :
 """
 
 import argparse
+import os
 import sys
 
 from .config import charger_configuration
-from .moteur import (ecrire_fichiers, generer_ecritures, generer_ecritures_paie,
-                     nettoyer_sortie)
+from .moteur import (ecrire_fichiers, formater_numero_piece, generer_ecritures,
+                     generer_ecritures_paie, nettoyer_sortie, prochain_compteur)
 
 
 def main(argv=None) -> int:
@@ -28,6 +29,15 @@ def main(argv=None) -> int:
     # Purge des fichiers générés d'un run précédent (jamais les autres fichiers),
     # avant toute écriture, pour ne pas réimporter un dossier devenu orphelin.
     nettoyer_sortie(cfg.dossier_sortie)
+
+    # N° de pièce incrémental : compteur de run accolé au n° de pièce de base.
+    # Calculé une seule fois pour que toutes les écritures du run (passe normale
+    # ET contre-passation) portent le même numéro.
+    if cfg.numero_piece_incremental and cfg.numero_piece:
+        chemin_compteur = os.path.join(cfg.dossier_sortie, "compteur_import.txt")
+        cfg.numero_piece = formater_numero_piece(cfg.numero_piece,
+                                                 prochain_compteur(chemin_compteur))
+        print(f"  N° de pièce de ce run : {cfg.numero_piece}")
 
     print("Écritures d'arrêté :")
     centres_invalides: list = []

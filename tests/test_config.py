@@ -147,3 +147,17 @@ def test_numero_piece_global_et_defaut_source(tmp_path):
     cfg = charger_configuration(str(chemin))
     assert cfg.numero_piece == "IMPORT"                # option globale chargée
     assert cfg.sources[0].numero_piece is None         # pas de surcharge -> None par défaut
+
+
+def test_numero_piece_incremental_chargement(tmp_path):
+    chemin = tmp_path / "cfg.yaml"
+    chemin.write_text(YAML_MINIMAL + '\nnumero_piece_incremental: true\n', encoding="utf-8")
+    cfg = charger_configuration(str(chemin))
+    assert cfg.numero_piece_incremental is True
+
+
+def test_numero_piece_incremental_defaut_false(tmp_path):
+    chemin = tmp_path / "cfg.yaml"
+    chemin.write_text(YAML_MINIMAL, encoding="utf-8")
+    cfg = charger_configuration(str(chemin))
+    assert cfg.numero_piece_incremental is False       # désactivé par défaut
