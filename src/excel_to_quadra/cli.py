@@ -32,9 +32,11 @@ def main(argv=None) -> int:
 
     # N° de pièce incrémental : compteur de run accolé au n° de pièce de base.
     # Calculé une seule fois pour que toutes les écritures du run (passe normale
-    # ET contre-passation) portent le même numéro.
+    # ET contre-passation) portent le même numéro. Le compteur est rangé à côté
+    # du fichier de configuration (dossier stable, non purgé comme la sortie).
     if cfg.numero_piece_incremental and cfg.numero_piece:
-        chemin_compteur = os.path.join(cfg.dossier_sortie, "compteur_import.txt")
+        dossier_config = os.path.dirname(os.path.abspath(args.config))
+        chemin_compteur = os.path.join(dossier_config, "compteur_import.txt")
         cfg.numero_piece = formater_numero_piece(cfg.numero_piece,
                                                  prochain_compteur(chemin_compteur))
         print(f"  N° de pièce de ce run : {cfg.numero_piece}")

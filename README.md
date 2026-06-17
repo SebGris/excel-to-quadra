@@ -182,9 +182,9 @@ chaque exécution** du programme, et **toutes les écritures d'un même run**
 (passe normale *et* contre-passation) portent le même numéro — pratique pour
 isoler un import donné dans le journal.
 
-Le dernier compteur utilisé est persisté dans `compteur_import.txt` (dossier de
-sortie) ; absent, vide ou corrompu, on repart de `1`. Ce fichier n'est pas
-touché par la purge des `*_ecriture_Quadra*.txt`.
+Le dernier compteur utilisé est persisté dans `compteur_import.txt`, **à côté du
+fichier de configuration** (dossier stable, contrairement à la sortie qui est
+purgée à chaque run) ; absent, vide ou corrompu, on repart de `1`.
 
 Format : base + compteur, tronqué à **8 caractères** (donc base de 6 c. max pour
 un compteur 2 chiffres : `IMPORT` → `IMPORT01`). Au-delà de 99 le compteur passe
