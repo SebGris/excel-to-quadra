@@ -23,6 +23,7 @@ Comment_faire_une_situation.md
 *.xlsb
 *.csv
 *.txt
+*.zip
 !requirements*.txt
 !tests/**
 
