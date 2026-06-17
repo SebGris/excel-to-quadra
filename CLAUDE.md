@@ -87,6 +87,30 @@ d'équilibre → écriture d'un fichier texte par dossier**.
 - **Tolérance** : ne jamais interrompre la génération sur une donnée incomplète
   — ignorer l'élément et l'ajouter à la liste de signalement correspondante.
 
+## Contrôles qualité — erreurs silencieuses
+
+Un traitement comptable doit attraper les erreurs que l'équilibre débit/crédit
+ne révèle pas. Tout contrôle ci-dessous est **non bloquant** (avertissement dans
+le rapport, code retour inchangé) sauf le déséquilibre, **seul cas bloquant**
+(code retour 1). Chaque signalement précise le **fichier source** concerné.
+
+- **Déséquilibre débit/crédit** (bloquant) — par dossier et global.
+- **Centre analytique manquant** — une écriture de classe 6/7 sans centre.
+- **Centre de coût non rattaché** — un centre d'un fichier source ne pointe vers
+  aucun dossier (écriture non générée).
+- **Centre analytique inconnu** — un centre émis n'appartient pas à l'ensemble
+  des centres connus (union de la table analytique, des centres supplémentaires
+  et des centres cités dans les ventilations).
+- **Doublons en entrée** — une même clé métier (p. ex. matricule + centre de
+  coût) présente dans plusieurs fichiers sources, ou plusieurs fois dans le même.
+
+> **Principe directeur (à respecter pour toute évolution et tout nouvel outil) :**
+> un doublon en entrée est **équilibré** en débit/crédit — il augmente d'autant
+> le débit et le crédit — donc il est **invisible au contrôle d'équilibre**.
+> Tout traitement qui agrège des données financières doit donc embarquer un
+> contrôle de doublons dédié, distinct du contrôle d'équilibre. Ne jamais
+> supposer que l'équilibre garantit l'absence de double comptage.
+
 ## Données et configuration
 
 - Les classeurs réels vivent dans `entree/` ; les fichiers générés dans
