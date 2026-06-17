@@ -10,7 +10,9 @@ import argparse
 import os
 import sys
 from collections import Counter
+from datetime import datetime
 
+from .comparaison import comparer_dossiers
 from .config import charger_configuration
 from .moteur import (EnteteInvalide, ecrire_fichiers, formater_numero_piece,
                      generer_ecritures, generer_ecritures_paie, nettoyer_sortie,
@@ -22,6 +24,9 @@ def main(argv=None) -> int:
         description="Génère un fichier d'import ASCII QuadraCOMPTA par établissement.")
     parser.add_argument("--config", required=True,
                         help="Chemin du fichier de configuration YAML")
+    parser.add_argument("--reference", nargs="?", const="reference", default=None,
+                        help="Dossier de référence à comparer (défaut « reference » "
+                             "si l'option est passée sans valeur)")
     args = parser.parse_args(argv)
 
     cfg = charger_configuration(args.config)
@@ -96,6 +101,23 @@ def main(argv=None) -> int:
         for code, d, c in deseq2:
             print(f"  !! DÉSÉQUILIBRE dossier {code} : débit {d/100:.2f} / crédit {c/100:.2f}")
         print(f"  {len(ex)} fichier(s) — total débit {td2/100:.2f} € / crédit {tc2/100:.2f} €")
+
+    # Comparaison optionnelle avec une version de référence (CLI > config).
+    reference = args.reference or cfg.dossier_reference
+    if reference:
+        chemin_csv = os.path.join(
+            cfg.dossier_sortie, f"diff_situation_{datetime.now():%Y%m%d}.csv")
+        synth = comparer_dossiers(reference, cfg.dossier_sortie, chemin_csv)
+        if synth is None:
+            print(f"\nComparaison : référence « {reference} » absente ou vide — ignorée.")
+        else:
+            print(f"\nComparaison avec « {reference} » -> {chemin_csv}")
+            print(f"  {synth.dossiers} dossier(s) touché(s) ; "
+                  f"{synth.nouvelles} nouvelle(s), {synth.supprimees} supprimée(s), "
+                  f"{synth.modifiees} modifiée(s)")
+            print(f"  total avant {synth.total_avant/100:.2f} € / "
+                  f"après {synth.total_apres/100:.2f} € / "
+                  f"écart {synth.ecart/100:.2f} €")
 
     print(f"\nTerminé. Fichiers dans : {cfg.dossier_sortie}")
     return 1 if deseq else 0

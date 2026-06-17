@@ -93,6 +93,7 @@ class Configuration:
     alias_dossiers: Dict[str, str] = field(default_factory=dict)  # dossier lu -> cible
     numero_piece: Optional[str] = None    # n° de pièce global (journal partagé)
     numero_piece_incremental: bool = False  # accole un compteur de run au n° de pièce
+    dossier_reference: Optional[str] = None  # dossier de référence pour la comparaison
 
     def centres_connus(self) -> set:
         """Ensemble des centres analytiques valides.
@@ -160,4 +161,5 @@ def charger_configuration(chemin: str) -> Configuration:
         alias_dossiers=alias_dossiers,
         numero_piece=brut.get("numero_piece"),
         numero_piece_incremental=bool(brut.get("numero_piece_incremental", False)),
+        dossier_reference=brut.get("dossier_reference"),
     )

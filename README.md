@@ -229,6 +229,32 @@ numero_piece: "IMPORT"
 numero_piece_incremental: true   # IMPORT01, IMPORT02, … (un n° par exécution)
 ```
 
+### Comparaison avec une version de référence
+
+Pour repérer ce qui a changé entre deux générations (correction d'un classeur,
+nouvelle clé de ventilation…), le programme peut comparer la sortie courante à
+une **version de référence** et produire un **rapport CSV des différences**.
+
+Workflow :
+
+1. Déposer les `*_ecriture_Quadra*.txt` de la génération précédente dans un
+   dossier de référence (ex. `reference/`).
+2. Relancer la génération en activant la comparaison, soit en ligne de commande
+   `excel-to-quadra --config … --reference reference`, soit via la clé de config
+   `dossier_reference: "reference"` (l'option CLI a priorité).
+3. Lire `diff_situation_AAAAMMJJ.csv` dans le dossier de sortie.
+
+La comparaison se fait au niveau de chaque **écriture M**, identifiée par
+(dossier, compte, sens, libellé) ; la valeur comparée est le montant. Chaque
+différence est classée **NOUVELLE**, **SUPPRIMEE** ou **MONTANT_MODIFIE**
+(avec `montant_avant`, `montant_apres`, `ecart`) ; les écritures identiques ne
+figurent pas dans le rapport. Le CSV (`;`, UTF-8 BOM, montants en euros) se
+termine par un récapitulatif (dossiers touchés, compteurs, totaux avant/après et
+écart global), également affiché à l'écran.
+
+Sans référence (ni option ni clé), aucune comparaison — comportement inchangé.
+Référence absente ou vide : message informatif, run normal (non bloquant).
+
 ## Structure du projet
 
 ```
@@ -240,6 +266,7 @@ excel-to-quadra/
 │   └── exemple_situation.yaml  # configuration d'exemple commentée
 ├── src/excel_to_quadra/
 │   ├── format_quadra.py        # enregistrements M et I (spécification Quadra)
+│   ├── comparaison.py          # diff CSV courant vs référence
 │   ├── normalisation.py        # codes établissement et montants
 │   ├── config.py               # dataclasses + chargement/validation YAML
 │   ├── moteur.py               # génération, agrégation paie, équilibre, sortie
@@ -248,6 +275,7 @@ excel-to-quadra/
     ├── test_format_quadra.py   # positions des enregistrements au caractère près
     ├── test_normalisation.py   # formats de codes, montants
     ├── test_moteur.py          # paires, analytique, négatifs, extourne
+    ├── test_comparaison.py     # diff courant vs référence, rapport CSV
     ├── test_config.py          # chargement YAML, table inverse, validation
     └── test_integration.py     # chaîne complète sur classeurs générés à la volée
 ```
@@ -255,7 +283,7 @@ excel-to-quadra/
 ## Tests
 
 ```bash
-pytest          # 120 tests
+pytest          # 129 tests
 pytest -v       # détail
 ```
 
