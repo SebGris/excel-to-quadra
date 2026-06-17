@@ -14,9 +14,9 @@ from datetime import datetime
 
 from .comparaison import comparer_dossiers
 from .config import charger_configuration
-from .moteur import (EnteteInvalide, ecrire_fichiers, formater_numero_piece,
-                     generer_ecritures, generer_ecritures_paie, nettoyer_sortie,
-                     prochain_compteur)
+from .moteur import (EnteteInvalide, archiver_entree, ecrire_fichiers,
+                     formater_numero_piece, generer_ecritures,
+                     generer_ecritures_paie, nettoyer_sortie, prochain_compteur)
 
 
 def main(argv=None) -> int:
@@ -32,6 +32,19 @@ def main(argv=None) -> int:
     cfg = charger_configuration(args.config)
     pretes = [s for s in cfg.sources if s.complete]
     attente_simple = [s.libelle for s in cfg.sources if not s.complete]
+
+    # Archivage optionnel du dossier entrée (confort, jamais bloquant) : un ZIP
+    # horodaté à la seconde, avant toute lecture des sources.
+    if cfg.dossier_archives or cfg.archiver_entree:
+        dossier_archives = cfg.dossier_archives or os.path.join(
+            os.path.dirname(os.path.normpath(cfg.dossier_entree)), "archives")
+        try:
+            chemin = archiver_entree(cfg.dossier_entree, dossier_archives,
+                                     datetime.now().strftime("%Y%m%d_%H%M%S"))
+            print(f"  Archive de « entree » : {chemin}" if chemin
+                  else "  Archivage : dossier entrée vide ou absent — ignoré.")
+        except Exception as e:                       # disque plein, droits…
+            print(f"  !! Archivage impossible (ignoré) : {e}")
 
     # Purge des fichiers générés d'un run précédent (jamais les autres fichiers),
     # avant toute écriture, pour ne pas réimporter un dossier devenu orphelin.

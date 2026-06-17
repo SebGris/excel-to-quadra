@@ -257,6 +257,27 @@ termine par un récapitulatif (dossiers touchés, compteurs, totaux avant/après
 Sans référence (ni option ni clé), aucune comparaison — comportement inchangé.
 Référence absente ou vide : message informatif, run normal (non bloquant).
 
+### Archivage automatique du dossier d'entrée
+
+Au démarrage de chaque génération, le programme peut archiver les classeurs du
+dossier `entree` dans un **ZIP horodaté** `entree_AAAAMMJJ_HHMMSS.zip` (à la
+seconde, pour qu'un nouvel essai le même jour n'écrase pas le précédent) — utile
+pour conserver l'état exact des sources ayant produit un import.
+
+Activation : renseigner `dossier_archives` (dossier cible) **ou** `archiver_entree:
+true` (archive alors dans `archives/`, à côté de `entree`). Sans l'une de ces
+options, aucun archivage (comportement inchangé). Seuls les fichiers à la racine
+de `entree` sont archivés ; `entree` vide ou absent → pas d'archive. L'archivage
+est un **confort, jamais bloquant** : en cas d'échec (disque plein, droits), un
+avertissement est émis et la génération continue.
+
+```yaml
+dossier_archives: "archives"   # ou : archiver_entree: true
+```
+
+> ⚠️ Les archives contiennent des **données de paie** : elles ne doivent **pas**
+> être versionnées. Le `.gitignore` couvre déjà `*.zip`.
+
 ## Structure du projet
 
 ```
@@ -285,7 +306,7 @@ excel-to-quadra/
 ## Tests
 
 ```bash
-pytest          # 131 tests
+pytest          # 137 tests
 pytest -v       # détail
 ```
 

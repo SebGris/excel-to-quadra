@@ -94,6 +94,8 @@ class Configuration:
     numero_piece: Optional[str] = None    # n° de pièce global (journal partagé)
     numero_piece_incremental: bool = False  # accole un compteur de run au n° de pièce
     dossier_reference: Optional[str] = None  # dossier de référence pour la comparaison
+    dossier_archives: Optional[str] = None   # dossier d'archives ZIP du dossier entrée
+    archiver_entree: bool = False            # archiver entree/ (défaut : à côté de entree)
 
     def centres_connus(self) -> set:
         """Ensemble des centres analytiques valides.
@@ -162,4 +164,6 @@ def charger_configuration(chemin: str) -> Configuration:
         numero_piece=brut.get("numero_piece"),
         numero_piece_incremental=bool(brut.get("numero_piece_incremental", False)),
         dossier_reference=brut.get("dossier_reference"),
+        dossier_archives=brut.get("dossier_archives"),
+        archiver_entree=bool(brut.get("archiver_entree", False)),
     )

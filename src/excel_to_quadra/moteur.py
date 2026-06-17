@@ -15,6 +15,7 @@ Règles de gestion :
 
 import glob
 import os
+import zipfile
 from collections import defaultdict
 from decimal import ROUND_HALF_UP, Decimal
 from typing import Dict, List, Optional, Tuple
@@ -336,6 +337,28 @@ def prochain_compteur(chemin: str) -> int:
     with open(chemin, "w", encoding="utf-8") as fh:
         fh.write(str(courant))
     return courant
+
+
+def archiver_entree(dossier_entree: str, dossier_archives: str,
+                    horodatage: str) -> Optional[str]:
+    """Archive les fichiers à la racine de `dossier_entree` dans un ZIP horodaté
+    `entree_<horodatage>.zip` sous `dossier_archives` (créé si besoin).
+
+    Renvoie le chemin du ZIP, ou None si `dossier_entree` est absent ou ne
+    contient aucun fichier (pas de récursion dans les sous-dossiers).
+    """
+    if not os.path.isdir(dossier_entree):
+        return None
+    fichiers = [f for f in sorted(os.listdir(dossier_entree))
+                if os.path.isfile(os.path.join(dossier_entree, f))]
+    if not fichiers:
+        return None
+    os.makedirs(dossier_archives, exist_ok=True)
+    chemin_zip = os.path.join(dossier_archives, f"entree_{horodatage}.zip")
+    with zipfile.ZipFile(chemin_zip, "w", zipfile.ZIP_DEFLATED) as archive:
+        for nom in fichiers:
+            archive.write(os.path.join(dossier_entree, nom), arcname=nom)
+    return chemin_zip
 
 
 def nettoyer_sortie(dossier_sortie: str) -> list:

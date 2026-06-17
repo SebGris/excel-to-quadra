@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """Tests d'intégration : classeurs Excel générés à la volée, chaîne complète."""
 
+import os
 import shutil
 from datetime import datetime
 
@@ -9,9 +10,10 @@ from openpyxl import Workbook
 
 from excel_to_quadra.cli import main as cli_main
 from excel_to_quadra.config import (Composante, Configuration, Source, SourcePaie)
-from excel_to_quadra.moteur import (EnteteInvalide, controler_equilibre,
-                                     ecrire_fichiers, generer_ecritures,
-                                     generer_ecritures_paie, nettoyer_sortie)
+from excel_to_quadra.moteur import (EnteteInvalide, archiver_entree,
+                                     controler_equilibre, ecrire_fichiers,
+                                     generer_ecritures, generer_ecritures_paie,
+                                     nettoyer_sortie)
 
 CRLF = b"\r\n"
 
@@ -728,3 +730,81 @@ def test_dossier_reference_du_yaml_sans_option_cli(tmp_path):
     lignes = csvs[0].read_text(encoding="utf-8-sig").splitlines()
     assert lignes[0].startswith("Type;Dossier")
     assert any("MONTANT_MODIFIE;704" in l for l in lignes)
+
+
+def test_archiver_entree_zip_contient_les_fichiers(tmp_path):
+    import zipfile
+    entree = tmp_path / "entree"
+    arch = tmp_path / "archives"
+    entree.mkdir()
+    (entree / "a.xlsx").write_bytes(b"AAA")
+    (entree / "b.xlsx").write_bytes(b"BBB")
+    chemin = archiver_entree(str(entree), str(arch), "20260617_120000")
+    assert os.path.basename(chemin) == "entree_20260617_120000.zip"   # motif horodaté
+    with zipfile.ZipFile(chemin) as z:
+        assert sorted(z.namelist()) == ["a.xlsx", "b.xlsx"]
+
+
+def test_archiver_entree_deux_archives_distinctes(tmp_path):
+    entree = tmp_path / "entree"
+    arch = tmp_path / "archives"
+    entree.mkdir()
+    (entree / "a.xlsx").write_bytes(b"AAA")
+    c1 = archiver_entree(str(entree), str(arch), "20260617_120000")
+    c2 = archiver_entree(str(entree), str(arch), "20260617_120001")
+    assert c1 != c2 and os.path.exists(c1) and os.path.exists(c2)
+
+
+def test_archiver_entree_vide_pas_de_zip(tmp_path):
+    entree = tmp_path / "entree"
+    entree.mkdir()
+    assert archiver_entree(str(entree), str(tmp_path / "archives"), "20260617_120000") is None
+
+
+def test_archiver_entree_absent_pas_de_zip(tmp_path):
+    assert archiver_entree(str(tmp_path / "absent"), str(tmp_path / "archives"),
+                           "20260617_120000") is None
+
+
+def _cfg_minimal_archive(tmp_path, entree, sortie, lignes_extra=()):
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "CRE"
+    ws["A2"] = "704"
+    ws["C2"] = 100.0
+    wb.save(entree / "p.xlsx")
+    lignes = [f'dossier_entree: "{entree.as_posix()}"',
+              f'dossier_sortie: "{sortie.as_posix()}"', *lignes_extra,
+              'analytique:', '  "704": "770401"', 'sources:',
+              '  - fichier: "p.xlsx"', '    feuille: "CRE"', '    ligne_debut: 2',
+              '    col_dossier: "A"', '    col_montant: "C"',
+              '    compte_credit: "40810000"', '    compte_debit: "62280000"',
+              '    libelle: "Charge"', '    journal: "OS"', '    date_ecriture: "310526"',
+              'sources_paie: []']
+    chemin = tmp_path / "cfg.yaml"
+    chemin.write_text("\n".join(lignes) + "\n", encoding="utf-8")
+    return chemin
+
+
+def test_cli_archive_entree_si_dossier_archives(tmp_path):
+    import zipfile
+    entree = tmp_path / "entree"
+    sortie = tmp_path / "sortie"
+    arch = tmp_path / "archives"
+    entree.mkdir()
+    chemin = _cfg_minimal_archive(tmp_path, entree, sortie,
+                                  [f'dossier_archives: "{arch.as_posix()}"'])
+    cli_main(["--config", str(chemin)])
+    zips = list(arch.glob("entree_*.zip"))
+    assert len(zips) == 1
+    with zipfile.ZipFile(zips[0]) as z:
+        assert "p.xlsx" in z.namelist()
+
+
+def test_cli_aucun_archivage_sans_dossier_archives(tmp_path):
+    entree = tmp_path / "entree"
+    sortie = tmp_path / "sortie"
+    arch = tmp_path / "archives"
+    entree.mkdir()
+    cli_main(["--config", str(_cfg_minimal_archive(tmp_path, entree, sortie))])
+    assert not arch.exists()                           # pas d'archivage par défaut
