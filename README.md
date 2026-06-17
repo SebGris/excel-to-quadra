@@ -80,6 +80,15 @@ C'est un **avertissement** : l'écriture est tout de même produite et le code d
 retour reste `0` (à la différence du centre *manquant*, qui concerne l'absence
 de centre, pas un centre invalide).
 
+Une section **« Doublons potentiels détectés (à vérifier) »** signale, pour les
+sources de paie, les couples (matricule, centre de coût) présents plus d'une
+fois — dans un même fichier ou dans plusieurs — avec les fichiers concernés. Un
+tel doublon double la provision d'un salarié **sans rompre l'équilibre**, donc
+sans être détecté par le contrôle débit/crédit. Le matricule est lu dans la
+colonne `col_matricule` de la source de paie (défaut `G`). Un même matricule sur
+des centres *différents* (salarié réparti) n'est pas un doublon. C'est un
+**avertissement** non bloquant (code de retour inchangé).
+
 Au démarrage, le dossier de sortie est **purgé des fichiers générés d'un run
 précédent** (motif `*_ecriture_Quadra*.txt` uniquement ; tout autre fichier est
 préservé), afin qu'un dossier devenu orphelin — supprimé, renommé ou aliasé — ne
@@ -222,7 +231,7 @@ excel-to-quadra/
 ## Tests
 
 ```bash
-pytest          # 110 tests
+pytest          # 114 tests
 pytest -v       # détail
 ```
 

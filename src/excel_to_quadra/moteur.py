@@ -189,17 +189,24 @@ def generer_ecritures(sources: List[Source], cfg: Configuration,
 
 
 def generer_ecritures_paie(sources: List[SourcePaie], cfg: Configuration,
-                           extourne: bool = False) -> Tuple[ParDossier, list, list]:
+                           extourne: bool = False,
+                           doublons: Optional[list] = None) -> Tuple[ParDossier, list, list]:
     """Traite les classeurs de paie détaillés par salarié.
 
     Les montants sont agrégés par centre de coût, le dossier est retrouvé via
     la table inverse centre -> dossier, et le centre de coût sert directement
     de centre analytique. Renvoie (par_dossier, centres_inconnus, en_attente),
     où centres_inconnus liste des couples (centre, fichier) pour la traçabilité.
+
+    Si `doublons` (liste) est fourni, on y mémorise les clés (matricule, centre)
+    présentes plus d'une fois (mêmes salarié+centre comptés deux fois, dans un
+    ou plusieurs fichiers) sous la forme (matricule, centre, fichiers) — un même
+    matricule sur des centres différents (salarié réparti) n'est PAS un doublon.
     """
     par_dossier: ParDossier = defaultdict(list)
     centres_inconnus: list = []
     en_attente: list = []
+    suivi_matricules: Dict[Tuple[str, str], list] = defaultdict(list)
     cache_wb = {}
 
     for src in sources:
@@ -210,6 +217,7 @@ def generer_ecritures_paie(sources: List[SourcePaie], cfg: Configuration,
             cache_wb[chemin] = load_workbook(chemin, data_only=True)
         ws = cache_wb[chemin][src.feuille]
         c_centre = column_index_from_string(src.col_centre)
+        c_matricule = column_index_from_string(src.col_matricule)
         date = src.contre_passation if extourne else src.date_ecriture
         numero_piece = src.numero_piece or cfg.numero_piece   # surcharge source > globale
 
@@ -222,6 +230,11 @@ def generer_ecritures_paie(sources: List[SourcePaie], cfg: Configuration,
             centre = str(centre).strip()
             if not centre.isdigit():
                 continue
+            # Détection de doublons : on note (matricule, centre) -> fichier.
+            if doublons is not None:
+                matricule = ws.cell(r, c_matricule).value
+                if matricule is not None and str(matricule).strip():
+                    suivi_matricules[(str(matricule).strip(), centre)].append(src.fichier)
             for comp in src.composantes:
                 v = lire_montant(ws.cell(r, column_index_from_string(comp.col)).value)
                 if v:
@@ -243,6 +256,11 @@ def generer_ecritures_paie(sources: List[SourcePaie], cfg: Configuration,
                 ajouter_ecriture_pair(par_dossier, dossier, src.journal, date, comp.libelle,
                                       comp.compte_credit, comp.compte_debit, montant,
                                       centre, None, extourne, numero_piece=numero_piece)
+
+    if doublons is not None:                              # clés vues plus d'une fois
+        for (matricule, centre), fichiers in sorted(suivi_matricules.items()):
+            if len(fichiers) > 1:
+                doublons.append((matricule, centre, tuple(sorted(fichiers))))
     return par_dossier, sorted(set(centres_inconnus)), sorted(set(en_attente))
 
 

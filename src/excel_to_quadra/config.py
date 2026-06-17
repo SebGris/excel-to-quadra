@@ -72,6 +72,7 @@ class SourcePaie:
     composantes: List[Composante]
     contre_passation: Optional[str] = None
     numero_piece: Optional[str] = None    # surcharge le n° de pièce global
+    col_matricule: str = "G"              # colonne du matricule (détection de doublons)
 
 
 @dataclass

@@ -9,6 +9,7 @@ Usage :
 import argparse
 import os
 import sys
+from collections import Counter
 
 from .config import charger_configuration
 from .moteur import (ecrire_fichiers, formater_numero_piece, generer_ecritures,
@@ -43,9 +44,11 @@ def main(argv=None) -> int:
 
     print("Écritures d'arrêté :")
     centres_invalides: list = []
+    doublons_paie: list = []
     par_dossier, sans_centre = generer_ecritures(pretes, cfg,
                                                  centres_inconnus=centres_invalides)
-    par_paie, centres_inconnus, attente_paie = generer_ecritures_paie(cfg.sources_paie, cfg)
+    par_paie, centres_inconnus, attente_paie = generer_ecritures_paie(
+        cfg.sources_paie, cfg, doublons=doublons_paie)
     for dossier, lignes in par_paie.items():
         par_dossier[dossier].extend(lignes)
 
@@ -70,6 +73,12 @@ def main(argv=None) -> int:
         print("\n  Sources en attente de comptes (non générées) :")
         for lib in attente_simple + list(attente_paie):
             print("   -", lib)
+    if doublons_paie:
+        print("\n  Doublons potentiels détectés (à vérifier) :")
+        for matricule, centre, fichiers in sorted(doublons_paie):
+            parties = [f"{f} (x{n})" if n > 1 else f
+                       for f, n in sorted(Counter(fichiers).items())]
+            print(f"   - matricule {matricule}, centre {centre} : {', '.join(parties)}")
 
     if any(s.contre_passation for s in cfg.sources + cfg.sources_paie):
         print("\nContre-passations :")

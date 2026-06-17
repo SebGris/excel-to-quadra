@@ -520,3 +520,64 @@ def test_numero_piece_incremental_deux_runs_successifs(tmp_path):
 def test_numero_piece_fixe_sans_option_incremental(tmp_path):
     m = _run_cli_numero_piece(tmp_path, incremental=False)
     assert m and all(l[99:107] == "IMPORT  " for l in m)     # fixe, comportement inchangé
+
+
+def _generer_paie_doublons(tmp_path, fichiers):
+    """fichiers : liste de (nom, [(matricule, centre, montant), ...]).
+
+    Matricule en colonne G, centre en D, montant en N. Renvoie la liste doublons.
+    """
+    entree = tmp_path / "entree"
+    sortie = tmp_path / "sortie"
+    entree.mkdir()
+    sources = []
+    for nom, lignes in fichiers:
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Feuil1"
+        for i, (matricule, centre, montant) in enumerate(lignes, start=2):
+            if matricule is not None:
+                ws.cell(i, 7, matricule)               # colonne G : matricule
+            ws.cell(i, 4, centre)                      # colonne D : centre
+            ws.cell(i, 14, montant)                    # colonne N : composante
+        wb.save(entree / nom)
+        sources.append(SourcePaie(
+            fichier=nom, feuille="Feuil1", ligne_debut=2, col_centre="D",
+            journal="OS", date_ecriture="310526", contre_passation=None,
+            composantes=[Composante(col="N", compte_debit="64133820",
+                                    compte_credit="42822000", libelle="PRIME")]))
+    cfg = Configuration(
+        dossier_entree=str(entree), dossier_sortie=str(sortie),
+        analytique={"704": "770401"}, centre_vers_dossier={"770401": "704"},
+        sources=[], sources_paie=sources)
+    doublons = []
+    generer_ecritures_paie(cfg.sources_paie, cfg, doublons=doublons)
+    return doublons
+
+
+def test_doublon_meme_matricule_centre_dans_deux_fichiers(tmp_path):
+    d = _generer_paie_doublons(tmp_path, [
+        ("paieA.xlsx", [("M001", "770401", 100.0)]),
+        ("paieB.xlsx", [("M001", "770401", 100.0)])])
+    assert d == [("M001", "770401", ("paieA.xlsx", "paieB.xlsx"))]
+
+
+def test_meme_matricule_centres_differents_pas_de_doublon(tmp_path):
+    d = _generer_paie_doublons(tmp_path, [
+        ("paieA.xlsx", [("M001", "770401", 100.0)]),
+        ("paieB.xlsx", [("M001", "770501", 100.0)])])
+    assert d == []                                     # salarié réparti : normal
+
+
+def test_aucun_doublon_aucune_detection(tmp_path):
+    d = _generer_paie_doublons(tmp_path, [
+        ("paieA.xlsx", [("M001", "770401", 100.0)]),
+        ("paieB.xlsx", [("M002", "770401", 100.0)])])
+    assert d == []
+
+
+def test_matricule_absent_ignore(tmp_path):
+    d = _generer_paie_doublons(tmp_path, [
+        ("paieA.xlsx", [(None, "770401", 100.0)]),
+        ("paieB.xlsx", [(None, "770401", 100.0)])])
+    assert d == []
