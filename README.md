@@ -151,6 +151,32 @@ sources_paie:
     # ... composantes ...
 ```
 
+#### Charges calculées par taux (composantes de paie)
+
+Chaque composante d'une source de paie lit sa colonne `col` ; un champ optionnel
+**`taux`** la transforme en `valeur(col) × taux` (arrondi commercial). Cela permet
+de **calculer une charge à partir d'un brut** quand elle est absente du fichier
+(colonnes cassées) : plusieurs composantes partagent alors la même colonne (le
+brut), lue une seule fois. Exemple — prime décentralisée dont les charges
+sociales/fiscales sont calculées sur le brut (colonne `S`) :
+
+```yaml
+sources_paie:
+  - fichier: "CRE SIEGE PRIME DECENTRALISEE 310526.xlsx"
+    feuille: "Feuil1"
+    ligne_debut: 3
+    col_centre: "M"
+    col_matricule: "G"
+    entete_attendu: { M: "Centre de coût new", G: "Matricule", S: "PRIME DECENTRALISEE" }
+    composantes:
+      - { col: "S", compte_debit: "64133840", compte_credit: "42824000", libelle: "Prime decentr 0526" }
+      - { col: "S", taux: 0.3592, compte_debit: "64585000", compte_credit: "43824000", libelle: "Ch soc decentr 0526" }
+      - { col: "S", taux: 0.0987, compte_debit: "63185000", compte_credit: "44824000", libelle: "Ch fisc decentr 0526" }
+```
+
+Les taux sont **fournis en configuration** (jamais lus dans le fichier) ; chaque
+composante reste une écriture équilibrée.
+
 ```yaml
 sources:
   - fichier: "Charges_a_lisser.xlsx"
@@ -326,7 +352,7 @@ excel-to-quadra/
 ## Tests
 
 ```bash
-pytest          # 142 tests
+pytest          # 146 tests
 pytest -v       # détail
 ```
 

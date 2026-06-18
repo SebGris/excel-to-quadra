@@ -260,7 +260,10 @@ def generer_ecritures_paie(sources: List[SourcePaie], cfg: Configuration,
         date = src.contre_passation if extourne else src.date_ecriture
         numero_piece = src.numero_piece or cfg.numero_piece   # surcharge source > globale
 
-        # Agrégation des montants par centre de coût, composante par composante
+        # Agrégation des montants par centre de coût, colonne par colonne (chaque
+        # colonne lue une seule fois : plusieurs composantes peuvent partager la
+        # même colonne, p. ex. brut + charges calculées au taux sur le même brut).
+        cols_distinctes = {comp.col for comp in src.composantes}
         cumul: Dict[str, Dict[str, float]] = defaultdict(lambda: defaultdict(float))
         for r in range(src.ligne_debut, ws.max_row + 1):
             centre = ws.cell(r, c_centre).value
@@ -274,10 +277,10 @@ def generer_ecritures_paie(sources: List[SourcePaie], cfg: Configuration,
                 matricule = ws.cell(r, c_matricule).value
                 if matricule is not None and str(matricule).strip():
                     suivi_matricules[(str(matricule).strip(), centre)].append(src.fichier)
-            for comp in src.composantes:
-                v = lire_montant(ws.cell(r, column_index_from_string(comp.col)).value)
+            for col in cols_distinctes:
+                v = lire_montant(ws.cell(r, column_index_from_string(col)).value)
                 if v:
-                    cumul[centre][comp.col] += v
+                    cumul[centre][col] += v
 
         for centre in sorted(cumul):
             dossier = cfg.centre_vers_dossier.get(centre)
@@ -286,7 +289,12 @@ def generer_ecritures_paie(sources: List[SourcePaie], cfg: Configuration,
                 continue
             dossier = cfg.alias_dossiers.get(dossier, dossier)   # alias de dossier
             for comp in src.composantes:
-                montant = round(cumul[centre].get(comp.col, 0.0), 2)
+                base = round(cumul[centre].get(comp.col, 0.0), 2)   # brut provisionné
+                if comp.taux is not None:                           # charge = brut × taux
+                    montant = float((Decimal(str(base)) * Decimal(str(comp.taux))
+                                     ).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
+                else:
+                    montant = base
                 if abs(montant) < 0.005:
                     continue
                 if not comp.complete:

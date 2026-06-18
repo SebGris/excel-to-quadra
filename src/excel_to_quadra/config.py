@@ -52,11 +52,17 @@ class Source:
 
 @dataclass
 class Composante:
-    """Une composante d'une provision de paie (ex. prime / charges sociales)."""
+    """Une composante d'une provision de paie (ex. prime / charges sociales).
+
+    `taux` (optionnel) : multiplicateur appliqué à la valeur de `col`. Permet de
+    calculer une charge à partir d'un brut (ex. charges = brut × 0,3592) quand
+    elle n'est pas présente dans le fichier. Absent : montant = valeur de `col`.
+    """
     col: str
     compte_debit: str
     compte_credit: str
     libelle: str
+    taux: Optional[float] = None
 
     @property
     def complete(self) -> bool:

@@ -877,3 +877,76 @@ def test_output_dossier_distinct_preserve_la_generation_complete(tmp_path):
     cli_main(["--config", str(chemin), "--source", "produits", "--output", str(out)])
     assert (sortie / "705_ecriture_Quadra.txt").exists()        # complète préservée
     assert _fichiers_sortie(out) == {"704_ecriture_Quadra.txt"}  # restreint à part
+
+
+PRIME_FICHIER = "CRE SIEGE PRIME DECENTRALISEE 310526.xlsx"
+
+
+def _cfg_prime_decentralisee(tmp_path, centre="770401", brut=1000.0,
+                             header_m="Centre de coût new"):
+    """Source de paie « prime décentralisée » : charges calculées à partir du brut
+    (col S) via un taux par composante ; charges absentes du fichier."""
+    entree = tmp_path / "entree"
+    sortie = tmp_path / "sortie"
+    if not entree.exists():
+        entree.mkdir()
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Feuil1"
+    ws["M2"] = header_m                                # en-tête ligne 2
+    ws["G2"] = "Matricule"
+    ws["S2"] = "PRIME DECENTRALISEE"
+    ws["M3"] = centre                                  # données ligne 3
+    ws["G3"] = "M001"
+    ws["S3"] = brut
+    wb.save(entree / PRIME_FICHIER)
+    return Configuration(
+        dossier_entree=str(entree), dossier_sortie=str(sortie),
+        analytique={"704": "770401"}, centre_vers_dossier={"770401": "704"},
+        sources=[], sources_paie=[SourcePaie(
+            fichier=PRIME_FICHIER, feuille="Feuil1", ligne_debut=3,
+            col_centre="M", col_matricule="G", journal="OS", date_ecriture="310526",
+            entete_attendu={"M": "Centre de coût new", "G": "Matricule",
+                            "S": "PRIME DECENTRALISEE"},
+            composantes=[
+                Composante(col="S", compte_debit="64133840",
+                           compte_credit="42824000", libelle="Prime decentr 0526"),
+                Composante(col="S", taux=0.3592, compte_debit="64585000",
+                           compte_credit="43824000", libelle="Ch soc decentr 0526"),
+                Composante(col="S", taux=0.0987, compte_debit="63185000",
+                           compte_credit="44824000", libelle="Ch fisc decentr 0526"),
+            ])])
+
+
+def _montant_m(lignes, compte, sens):
+    return next(int(l[42:55]) for l in lignes
+                if l.startswith("M") and l[1:9] == compte and l[41] == sens)
+
+
+def test_prime_decentralisee_charges_calculees(tmp_path):
+    cfg = _cfg_prime_decentralisee(tmp_path, brut=1000.0)
+    par, inconnus, attente = generer_ecritures_paie(cfg.sources_paie, cfg)
+    lignes = par["704"]
+    assert _montant_m(lignes, "64133840", "D") == 100000   # brut 1000,00 €
+    assert _montant_m(lignes, "64585000", "D") == 35920    # 1000 × 0,3592
+    assert _montant_m(lignes, "63185000", "D") == 9870     # 1000 × 0,0987
+    assert inconnus == [] and attente == []
+
+
+def test_prime_decentralisee_total_equilibre(tmp_path):
+    cfg = _cfg_prime_decentralisee(tmp_path, brut=1234.56)
+    par, _, _ = generer_ecritures_paie(cfg.sources_paie, cfg)
+    d, c = controler_equilibre(par["704"])
+    assert d == c and d > 0                                 # chaque composante équilibrée
+
+
+def test_prime_decentralisee_entete_non_conforme_bloque(tmp_path):
+    cfg = _cfg_prime_decentralisee(tmp_path, header_m="MAUVAIS LIBELLE")
+    with pytest.raises(EnteteInvalide):
+        generer_ecritures_paie(cfg.sources_paie, cfg)
+
+
+def test_prime_decentralisee_centre_inconnu_signale(tmp_path):
+    cfg = _cfg_prime_decentralisee(tmp_path, centre="999999")
+    _, inconnus, _ = generer_ecritures_paie(cfg.sources_paie, cfg)
+    assert inconnus == [("999999", PRIME_FICHIER)]
