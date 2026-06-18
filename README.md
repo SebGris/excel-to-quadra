@@ -278,6 +278,26 @@ dossier_archives: "archives"   # ou : archiver_entree: true
 > ⚠️ Les archives contiennent des **données de paie** : elles ne doivent **pas**
 > être versionnées. Le `.gitignore` couvre déjà `*.zip`.
 
+### Périmètre restreint à une source (`--source`)
+
+`--source <nom_ou_motif>` restreint la génération aux sources dont le `fichier:`
+correspond (sous-chaîne **ou** motif glob, insensible à la casse), exactement
+comme si seul ce fichier était présent dans `entree` : seuls les
+dossiers/établissements alimentés par cette source ont un `.txt` en sortie.
+Tous les contrôles (équilibre compris) s'appliquent au périmètre restreint.
+Sans l'option, **toutes** les sources sont traitées (comportement inchangé).
+La clé config `filtre_source` joue le même rôle (l'option CLI est prioritaire).
+
+Usage : permettre aux collègues ayant déjà importé la version précédente de
+n'importer que les écritures du **nouveau** fichier, sans doublon. Combiner avec
+`--output <dossier>` pour écrire dans un dossier distinct et **ne pas écraser**
+la génération complète :
+
+```bash
+excel-to-quadra --config config/situation.local.yaml \
+    --source "*PRECA*" --output sortie_preca
+```
+
 ## Structure du projet
 
 ```
@@ -306,7 +326,7 @@ excel-to-quadra/
 ## Tests
 
 ```bash
-pytest          # 137 tests
+pytest          # 142 tests
 pytest -v       # détail
 ```
 

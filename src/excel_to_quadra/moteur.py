@@ -13,6 +13,7 @@ Règles de gestion :
   - centre analytique inconnu          -> ligne M produite, absence signalée.
 """
 
+import fnmatch
 import glob
 import os
 import zipfile
@@ -39,6 +40,14 @@ class EnteteInvalide(Exception):
 
 def _est_charge_ou_produit(compte: str) -> bool:
     return str(compte)[:1] in ("6", "7")
+
+
+def source_correspond(fichier: str, motif: str) -> bool:
+    """True si le nom de fichier correspond au motif — sous-chaîne **ou** motif
+    glob (`*`, `?`) —, insensible à la casse. Sert à restreindre le périmètre de
+    génération à une (ou des) source(s) précise(s)."""
+    f, m = str(fichier).lower(), str(motif).lower()
+    return m in f or fnmatch.fnmatchcase(f, m)
 
 
 def _verifier_entete(ws, entete_attendu: Dict[str, str], ligne_entete: int,

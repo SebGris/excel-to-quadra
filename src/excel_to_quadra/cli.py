@@ -16,7 +16,8 @@ from .comparaison import comparer_dossiers
 from .config import charger_configuration
 from .moteur import (EnteteInvalide, archiver_entree, ecrire_fichiers,
                      formater_numero_piece, generer_ecritures,
-                     generer_ecritures_paie, nettoyer_sortie, prochain_compteur)
+                     generer_ecritures_paie, nettoyer_sortie, prochain_compteur,
+                     source_correspond)
 
 
 def main(argv=None) -> int:
@@ -27,9 +28,29 @@ def main(argv=None) -> int:
     parser.add_argument("--reference", nargs="?", const="reference", default=None,
                         help="Dossier de référence à comparer (défaut « reference » "
                              "si l'option est passée sans valeur)")
+    parser.add_argument("--source", default=None,
+                        help="Restreint la génération aux sources dont le fichier "
+                             "correspond (nom ou motif glob, p. ex. « *PRECA* »)")
+    parser.add_argument("--output", default=None,
+                        help="Dossier de sortie alternatif (pour ne pas écraser "
+                             "la génération complète)")
     args = parser.parse_args(argv)
 
     cfg = charger_configuration(args.config)
+
+    # Périmètre restreint à une (des) source(s) : option CLI --source > clé config.
+    motif_source = args.source if args.source is not None else cfg.filtre_source
+    if motif_source:
+        cfg.sources = [s for s in cfg.sources if source_correspond(s.fichier, motif_source)]
+        cfg.sources_paie = [s for s in cfg.sources_paie
+                            if source_correspond(s.fichier, motif_source)]
+        print(f"  Périmètre restreint à « {motif_source} » : "
+              f"{len(cfg.sources)} source(s) + {len(cfg.sources_paie)} paie.")
+        if args.output is None:
+            print("  (la sortie complète sera régénérée — utilisez --output pour la préserver)")
+    if args.output:                                  # sortie alternative pour ce run
+        cfg.dossier_sortie = args.output
+
     pretes = [s for s in cfg.sources if s.complete]
     attente_simple = [s.libelle for s in cfg.sources if not s.complete]
 

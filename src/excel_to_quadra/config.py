@@ -96,6 +96,7 @@ class Configuration:
     dossier_reference: Optional[str] = None  # dossier de référence pour la comparaison
     dossier_archives: Optional[str] = None   # dossier d'archives ZIP du dossier entrée
     archiver_entree: bool = False            # archiver entree/ (défaut : à côté de entree)
+    filtre_source: Optional[str] = None      # restreint la génération aux sources correspondantes
 
     def centres_connus(self) -> set:
         """Ensemble des centres analytiques valides.
@@ -166,4 +167,5 @@ def charger_configuration(chemin: str) -> Configuration:
         dossier_reference=brut.get("dossier_reference"),
         dossier_archives=brut.get("dossier_archives"),
         archiver_entree=bool(brut.get("archiver_entree", False)),
+        filtre_source=brut.get("filtre_source"),
     )

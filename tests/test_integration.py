@@ -13,7 +13,7 @@ from excel_to_quadra.config import (Composante, Configuration, Source, SourcePai
 from excel_to_quadra.moteur import (EnteteInvalide, archiver_entree,
                                      controler_equilibre, ecrire_fichiers,
                                      generer_ecritures, generer_ecritures_paie,
-                                     nettoyer_sortie)
+                                     nettoyer_sortie, source_correspond)
 
 CRLF = b"\r\n"
 
@@ -808,3 +808,72 @@ def test_cli_aucun_archivage_sans_dossier_archives(tmp_path):
     entree.mkdir()
     cli_main(["--config", str(_cfg_minimal_archive(tmp_path, entree, sortie))])
     assert not arch.exists()                           # pas d'archivage par défaut
+
+
+def test_source_correspond_sous_chaine_et_glob():
+    assert source_correspond("CRE PRECA 310526.xlsx", "PRECA")       # sous-chaîne
+    assert source_correspond("CRE PRECA 310526.xlsx", "*preca*")     # glob + casse
+    assert source_correspond("produits.xlsx", "*.xlsx")              # glob extension
+    assert not source_correspond("charges.xlsx", "produits")
+
+
+def _cfg_deux_sources(tmp_path):
+    entree = tmp_path / "entree"
+    sortie = tmp_path / "sortie"
+    entree.mkdir()
+    for nom, code in [("produits.xlsx", "704"), ("charges.xlsx", "705")]:
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "CRE"
+        ws["A2"] = code
+        ws["C2"] = 100.0
+        wb.save(entree / nom)
+    lignes = [f'dossier_entree: "{entree.as_posix()}"',
+              f'dossier_sortie: "{sortie.as_posix()}"',
+              'analytique:', '  "704": "770401"', '  "705": "770501"', 'sources:']
+    for nom in ("produits.xlsx", "charges.xlsx"):
+        lignes += [f'  - fichier: "{nom}"', '    feuille: "CRE"', '    ligne_debut: 2',
+                   '    col_dossier: "A"', '    col_montant: "C"',
+                   '    compte_credit: "40810000"', '    compte_debit: "62280000"',
+                   f'    libelle: "Lib {nom[:4]}"', '    journal: "OS"',
+                   '    date_ecriture: "310526"']
+    lignes.append('sources_paie: []')
+    chemin = tmp_path / "cfg.yaml"
+    chemin.write_text("\n".join(lignes) + "\n", encoding="utf-8")
+    return chemin, sortie
+
+
+def _fichiers_sortie(sortie):
+    return {p.name for p in sortie.glob("*_ecriture_Quadra.txt")}
+
+
+def test_source_unique_restreint_le_perimetre(tmp_path):
+    chemin, sortie = _cfg_deux_sources(tmp_path)
+    cli_main(["--config", str(chemin), "--source", "produits"])
+    assert _fichiers_sortie(sortie) == {"704_ecriture_Quadra.txt"}   # source ciblée seule
+
+
+def test_sans_source_toutes_les_sources(tmp_path):
+    chemin, sortie = _cfg_deux_sources(tmp_path)
+    cli_main(["--config", str(chemin)])
+    assert _fichiers_sortie(sortie) == {"704_ecriture_Quadra.txt",
+                                        "705_ecriture_Quadra.txt"}
+
+
+def test_perimetre_restreint_reste_equilibre(tmp_path):
+    chemin, sortie = _cfg_deux_sources(tmp_path)
+    assert cli_main(["--config", str(chemin), "--source", "produits"]) == 0
+    data = (sortie / "704_ecriture_Quadra.txt").read_bytes().decode("cp1252")
+    m = [l for l in data.split("\r\n") if l.startswith("M")]
+    debit = sum(int(l[42:55]) for l in m if l[41] == "D")
+    credit = sum(int(l[42:55]) for l in m if l[41] == "C")
+    assert debit == credit and debit > 0
+
+
+def test_output_dossier_distinct_preserve_la_generation_complete(tmp_path):
+    chemin, sortie = _cfg_deux_sources(tmp_path)
+    cli_main(["--config", str(chemin)])                # génération complète
+    out = tmp_path / "sortie_produits"
+    cli_main(["--config", str(chemin), "--source", "produits", "--output", str(out)])
+    assert (sortie / "705_ecriture_Quadra.txt").exists()        # complète préservée
+    assert _fichiers_sortie(out) == {"704_ecriture_Quadra.txt"}  # restreint à part
